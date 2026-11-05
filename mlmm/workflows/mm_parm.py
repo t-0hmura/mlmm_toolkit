@@ -1199,7 +1199,7 @@ def run_pipeline(args: Args) -> None:
     "pdb",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="Input PDB file (used as-is; optional hydrogens via --add-h/--ph).",
+    help="Input PDB file.",
 )
 @click.option(
     "-o",
@@ -1276,7 +1276,7 @@ def run_pipeline(args: Args) -> None:
     "--ff-set",
     type=click.Choice(["ff19SB", "ff14SB"]),
     default="ff19SB", show_default=True,
-    help="Force-field set for proteins/backbone typing and water/ion parameters.",
+    help="Amber force-field preset for proteins, water, and ions.",
 )
 def cli(
     pdb: Path,

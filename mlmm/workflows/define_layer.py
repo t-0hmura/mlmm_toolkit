@@ -530,7 +530,7 @@ def _effective_output_pdb(output_path: Path) -> Path:
 
 
 @click.command(
-    help="Define 3-layer ML/MM system based on distance from ML region.",
+    help="Define a 3-layer ML/MM system by distance from the ML region.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -570,8 +570,7 @@ def _effective_output_pdb(output_path: Path) -> Path:
     "output_pdb",
     type=click.Path(path_type=Path, dir_okay=False),
     default=None, show_default="<input>_layered.pdb",
-    help="Output PDB file with B-factors set to layer values. "
-         "Defaults to '<input>_layered.pdb'.",
+    help="Output PDB file with layer IDs in B-factors.",
 )
 @click.option(
     "--one-based/--zero-based",

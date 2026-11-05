@@ -407,8 +407,8 @@ def run_trj2fig(
     multiple=True,                      # allow repeating -o
     default=(),                         # default is empty (we inject the fallback later)
     type=click.Path(dir_okay=False, path_type=Path),
-    help="Output file(s). You can repeat -o, and/or list extra filenames after options "
-         "(.png/.jpg/.jpeg/.html/.svg/.pdf/.csv). If nothing is given, defaults to energy.png.",
+    help="Output file(s) (.png/.jpg/.jpeg/.html/.svg/.pdf/.csv). You can repeat -o and/or "
+         "list extra filenames after options. Defaults to energy.png.",
 )
 @click.argument(
     "extra_outs",                        # also accept extra filenames provided positionally after options
@@ -469,7 +469,7 @@ def run_trj2fig(
     "--out-json/--no-out-json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json next to the first output.",
+    help="Write result.json next to the first output.",
 )
 def cli(
     input_path: Path,

@@ -8,14 +8,13 @@ Usage: mlmm freq [OPTIONS]
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
                                   1=milestones only; 2=+detailed step logging
-                                  and deliverable paths; 3=everything (full
-                                  config blocks, per-file paths, DEBUG logging).
+                                  and output paths; 3=everything (full config
+                                  blocks, per-file paths, DEBUG logging).
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Enzyme complex PDB/mmCIF, or XYZ with --ref-
-                                  pdb, used by geom_loader and the ML/MM
-                                  calculator.  [required]
+  -i, --input FILE                Input structure file (PDB or mmCIF, or XYZ
+                                  with --ref-pdb).  [required]
   --parm7, --parm FILE            Amber parm7 topology for the full enzyme
                                   complex.  [required]
   --model-pdb FILE                ML-only, link-H-free PDB subset; atom
@@ -39,25 +38,21 @@ Options:
                                   Providing --movable-cutoff disables --detect-
                                   layer.  [default: (use freeze_atoms)]
   --hessian-calc-mode [analytical|finitedifference]
-                                  How the ML backend builds the Hessian
-                                  (Analytical or FiniteDifference); overrides
-                                  calc.hessian_calc_mode from YAML. Runtime and
-                                  memory depend on the backend and system;
-                                  compare both modes on a representative pilot.
+                                  How the backend computes the Hessian.
                                   [default: (FiniteDifference)]
   --max-write INTEGER             Maximum number of modes to export.  [default:
                                   10]
   --amplitude-ang FLOAT           Mode-trajectory amplitude (Å).  [default: 0.8]
   --n-frames INTEGER              Frames per vibrational mode trajectory.
                                   [default: 20]
-  --sort [value|abs]              Sort modes by signed value or absolute value.
+  --sort [value|abs]              Sort modes by signed or absolute frequency.
                                   [default: value]
   --temperature FLOAT             Temperature (K) for thermochemistry summary.
                                   [default: 298.15]
   --pressure FLOAT                Pressure (atm) for thermochemistry summary.
                                   [default: 1.0]
-  --dump / --no-dump              Write 'thermoanalysis.yaml' alongside the
-                                  console summary.  [default: no-dump]
+  --dump / --no-dump              Write 'thermoanalysis.yaml' to the output
+                                  directory.  [default: no-dump]
   -o, --out-dir TEXT              Output directory.  [default: ./result_freq/]
   --active-dof-mode [all|ml-only|partial|unfrozen]
                                   Active DOF selection for frequency analysis:
@@ -78,12 +73,10 @@ Options:
                                   Convert XYZ/TRJ outputs into PDB companions
                                   based on the input format.  [default: convert-
                                   files]
-  --hess-device [auto|cuda|cpu]   Device for post-evaluation Hessian placement
-                                  and diagonalization (auto/cuda/cpu). Use 'cpu'
-                                  to move the evaluated Hessian off GPU before
-                                  diagonalization. ML model inference always
-                                  uses ml_device (typically GPU).  [default:
-                                  auto]
+  --hess-device [auto|cuda|cpu]   Device used to store and diagonalize the
+                                  Hessian. Use 'cpu' to offload diagonalization
+                                  from the GPU (does not affect the calculator
+                                  device).  [default: auto]
   -b, --backend [uma|orb|mace|aimnet2|dft]
                                   High-level backend for the ONIOM model region.
                                   [default: (uma)]
@@ -126,7 +119,7 @@ Options:
                                   by --active-dof-mode) for '--read-hess' in
                                   freq, tsopt, or irc, or for other programs.
                                   [default: (None)]
-  --out-json / --no-out-json      Write machine-readable result.json to out_dir.
+  --out-json / --no-out-json      Write result.json to the output directory.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer
                                   Automatically detect ML/MM layers from input
@@ -146,11 +139,10 @@ Options:
                                   Spin multiplicity (2S+1) for the ML region.
                                   [default: (1); x>=1]
   --precision [tf32|fp32|fp64]    MLIP backend precision: tf32, fp32 (IEEE) or
-                                  fp64. Unset defaults per backend (uma: fp32;
-                                  orb, mace: fp64). tf32 uses TF32 matmul for
-                                  speed (uma, orb only); avoid it for Hessians.
-                                  aimnet2: fp32 only.  [default: (per backend:
-                                  uma fp32; orb, mace fp64)]
+                                  fp64. tf32 uses TF32 matmul for speed (uma,
+                                  orb only); avoid it for Hessians. aimnet2:
+                                  fp32 only.  [default: (per backend: uma fp32;
+                                  orb, mace fp64)]
   --compile / --no-compile        torch.compile the UMA or ORB model: slower
                                   first call, slightly faster afterwards; worth
                                   it only for long runs.  [default: (off)]
@@ -170,24 +162,23 @@ Options:
                                   mace, aimnet2 / aimnet2-nse for aimnet2).
                                   [default: (the selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
-                                  ASE Calculator used as the ML-region backend
-                                  (overrides --backend). Couples GFN-xTB / DFTB+
-                                  / any ASE engine. See --calc-file-func-name.
+                                  ASE Calculator for the ML region (overrides
+                                  --backend). Works with GFN-xTB, DFTB+ or any
+                                  ASE engine. See --calc-file-func-name.
   --calc-factory, --calc-file-func-name TEXT
                                   Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
-                                  Calculator instance). CLI overrides config
-                                  YAML; otherwise defaults to get_calculator.
-                                  [default: (get_calculator)]
+                                  Calculator instance).  [default:
+                                  (get_calculator)]
   --deterministic / --no-deterministic
                                   Make repeated runs on the same software
                                   versions and hardware give identical results
                                   (PyTorch deterministic algorithms; AM1-BCC
                                   ligand charges are not covered, so reuse one
-                                  parm7). Slower; raises for detected
-                                  unsupported ops; custom calculators (--calc-
-                                  file) and AIMNet2 are not supported: the run
-                                  stops.  [default: no-deterministic]
+                                  parm7). Slower; raises an error on unsupported
+                                  ops; custom calculators (--calc-file) and
+                                  AIMNet2 are not supported: the run stops.
+                                  [default: no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a
@@ -201,10 +192,10 @@ Options:
                                   PySCF execution engine used by --backend dft.
                                   [default: (gpu)]
   --save-scf-checkpoint / --no-save-scf-checkpoint
-                                  Persist a structure-bound PySCF checkpoint.
+                                  Save a structure-bound PySCF checkpoint.
                                   [default: (disabled)]
   --scf-checkpoint FILE           Load/save the optional structure-bound PySCF
-                                  checkpoint at PATH.
+                                  checkpoint.
   --dft-low-memory, --lowmem / --no-dft-low-memory, --no-lowmem
                                   Use GPU4PySCF rks_lowmem for closed-shell GPU
                                   DFT; open-shell GPU and CPU use standard

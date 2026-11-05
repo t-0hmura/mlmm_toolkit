@@ -171,7 +171,7 @@ def _resolve_sp_ml_region(
     "-i", "--input", "input_path",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="Layered PDB/mmCIF, or XYZ with --ref-pdb, defining the ML/MM/Frozen system.",
+    help="Input structure in PDB/mmCIF format, or XYZ with --ref-pdb.",
 )
 @click.option(
     "--ref-pdb",
@@ -247,9 +247,9 @@ def _resolve_sp_ml_region(
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None, show_default="FiniteDifference",
     help=(
-        "Hessian backend when --hess is set. Analytical is supported by UMA, "
-        "ORB, MACE, and AIMNet2; custom calculators use FiniteDifference. "
-        "Analytical cannot be combined with --workers > 1."
+        "Hessian calculation method when --hess is set. UMA, ORB, MACE, and AIMNet2 "
+        "support Analytical; custom calculators use FiniteDifference. "
+        "Analytical cannot be used with --workers > 1."
     ),
 )
 @click.option(
@@ -268,7 +268,7 @@ def _resolve_sp_ml_region(
 @click.option(
     "--out-json/--no-out-json", "out_json",
     default=False, show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @click.option(
     "-b", "--backend",

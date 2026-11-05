@@ -154,7 +154,7 @@ _MAX_BOUNDARY_BOND_DISTANCE = _BOUNDARY_BOND_SCALE * 2.0 * max(
         "Protein-substrate complex PDB/mmCIF file(s). Multiple files may be given space-separated "
         "after one -i or by repeating -i. PDBs whose residue or atom numbers overflow the "
         "fixed PDB columns are also accepted. "
-        "If multiple, they must have identical atom counts and ordering."
+        "Multiple inputs must have identical atom counts and ordering."
     ),
 )
 @click.option(
@@ -181,15 +181,14 @@ _MAX_BOUNDARY_BOND_DISTANCE = _BOUNDARY_BOND_SCALE * 2.0 * max(
     "-r", "--radius",
     type=click.FloatRange(min=0.0), default=2.6, show_default=True,
     help=(
-        "Cutoff (Å) around center atoms for active-site inclusion. Zero is "
-        "accepted and evaluated internally as 0.001 Å (effectively off for "
-        "ordinary radius-based neighbors)."
+        "Cutoff (Å) around center atoms for active-site inclusion. "
+        "0 disables radius-based expansion."
     ),
 )
 @click.option(
     "--radius-het2het",
     type=click.FloatRange(min=0.0), default=0, show_default=True,
-    help="Cutoff (Å) for center hetero-atom (non-C/H) to neighbor hetero-atom proximity. 0 is treated as 0.001 Å (effectively off).",
+    help="Cutoff (Å) for center heteroatom (non-C/H) to neighbor heteroatom proximity. 0 is treated as 0.001 Å (effectively off).",
 )
 @click.option(
     "--include-h2o/--no-include-h2o",
@@ -225,7 +224,7 @@ _MAX_BOUNDARY_BOND_DISTANCE = _BOUNDARY_BOND_SCALE * 2.0 * max(
     help=(
         "Comma-separated residue names with charges to treat as amino acids "
         "for backbone truncation and charge assignment. "
-        "A known catalog residue may omit its charge. "
+        "A recognized residue may omit its charge. "
         "Example: 'HD1:0,SEP'."
     ),
 )
@@ -240,7 +239,7 @@ _MAX_BOUNDARY_BOND_DISTANCE = _BOUNDARY_BOND_SCALE * 2.0 * max(
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json next to the output PDB.",
+    help="Write result.json next to the output PDB.",
 )
 @click.pass_context
 def cli(

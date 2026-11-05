@@ -9,13 +9,12 @@ Usage: mlmm mm-parm [OPTIONS]
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
                                   1=milestones only; 2=+detailed step logging
-                                  and deliverable paths; 3=everything (full
-                                  config blocks, per-file paths, DEBUG logging).
+                                  and output paths; 3=everything (full config
+                                  blocks, per-file paths, DEBUG logging).
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
-  -i, --input FILE                Input PDB file (used as-is; optional hydrogens
-                                  via --add-h/--ph).  [required]
+  -i, --input FILE                Input PDB file.  [required]
   -o, --out-prefix TEXT           Output prefix (default: input PDB stem). For
                                   LEaP PDB: if omitted with --add-h,
                                   <input_stem>_parm.pdb is used.
@@ -42,7 +41,7 @@ Options:
                                   --ph.  [default: no-add-h]
   --ph FLOAT                      pH used by PDBFixer when adding hydrogens
                                   (--add-h).  [default: 7.0]
-  --ff-set [ff19SB|ff14SB]        Force-field set for proteins/backbone typing
-                                  and water/ion parameters.  [default: ff19SB]
+  --ff-set [ff19SB|ff14SB]        Amber force-field preset for proteins, water,
+                                  and ions.  [default: ff19SB]
   -h, --help                      Show this message and exit.
 ```

@@ -705,7 +705,7 @@ def _prepare_frequency_output_paths(
     "input_path",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Enzyme complex PDB/mmCIF, or XYZ with --ref-pdb, used by geom_loader and the ML/MM calculator.",
+    help="Input structure file (PDB or mmCIF, or XYZ with --ref-pdb).",
 )
 @click.option(
     "--parm7",
@@ -764,10 +764,7 @@ def _prepare_frequency_output_paths(
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None, show_default="FiniteDifference",
-    help="How the ML backend builds the Hessian (Analytical or FiniteDifference); "
-         "overrides calc.hessian_calc_mode from YAML. "
-         "Runtime and memory depend on the backend and system; compare both "
-         "modes on a representative pilot.",
+    help="How the backend computes the Hessian.",
 )
 @click.option("--max-write", type=int, default=FREQ_KW["max_write"], show_default=True,
               help="Maximum number of modes to export.")
@@ -780,7 +777,7 @@ def _prepare_frequency_output_paths(
     type=click.Choice(["value", "abs"]),
     default=FREQ_KW["sort"],
     show_default=True,
-    help="Sort modes by signed value or absolute value.",
+    help="Sort modes by signed or absolute frequency.",
 )
 @click.option("--temperature", type=float, default=THERMO_KW["temperature"], show_default=True,
               help="Temperature (K) for thermochemistry summary.")
@@ -791,7 +788,7 @@ def _prepare_frequency_output_paths(
     "--dump/--no-dump",
     default=THERMO_KW["dump"],
     show_default=True,
-    help="Write 'thermoanalysis.yaml' alongside the console summary.",
+    help="Write 'thermoanalysis.yaml' to the output directory.",
 )
 @click.option("-o", "--out-dir", type=str, default=FREQ_KW["out_dir"], show_default=True, help="Output directory.")
 @click.option(
@@ -843,9 +840,8 @@ def _prepare_frequency_output_paths(
     type=click.Choice(["auto", "cuda", "cpu"], case_sensitive=False),
     default="auto",
     show_default=True,
-    help="Device for post-evaluation Hessian placement and diagonalization (auto/cuda/cpu). "
-         "Use 'cpu' to move the evaluated Hessian off GPU before diagonalization. "
-         "ML model inference always uses ml_device (typically GPU).",
+    help="Device used to store and diagonalize the Hessian. Use 'cpu' to offload "
+         "diagonalization from the GPU (does not affect the calculator device).",
 )
 @click.option(
     "-b", "--backend",
@@ -919,7 +915,7 @@ def _prepare_frequency_output_paths(
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @add_ml_layer_detection_options()
 @add_ml_charge_spin_options()

@@ -890,9 +890,9 @@ def _verbose_help(name: str | None) -> str:
     description never claims optimizer cycle tables / VRAM for the non-optimizer
     commands (extract, sp, freq, dft, file IO, analysis)."""
     if name in _OPTIMIZER_SUBCOMMANDS:
-        level2 = "optimizer cycle tables, per-stage timing, VRAM, deliverable paths"
+        level2 = "optimizer cycle tables, per-stage timing, VRAM, output paths"
     else:
-        level2 = "detailed step logging and deliverable paths"
+        level2 = "detailed step logging and output paths"
     return (
         "Console verbosity 0-3 (default 2). 0=silent; 1=milestones only; "
         f"2=+{level2}; "

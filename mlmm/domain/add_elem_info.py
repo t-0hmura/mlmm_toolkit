@@ -352,20 +352,20 @@ def assign_elements(
     "in_pdb",
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     required=True,
-    help="Input PDB filepath",
+    help="Input PDB file.",
 )
 @click.option(
     "-o", "--output", "--out",
     "out_pdb",
     type=click.Path(path_type=Path, dir_okay=False),
     default=None,
-    help='Output PDB filepath (default: replace ".pdb" with "_add_elem.pdb"; when provided, --overwrite is ignored unless this is the input file, which requires it).',
+    help='Output PDB file (default: replace ".pdb" with "_add_elem.pdb"; when provided, --overwrite is ignored unless this is the input file, which requires it).',
 )
 @click.option(
     "--overwrite/--no-overwrite",
     default=False,
     show_default=True,
-    help="Overwrite the input file in-place when -o/--out is omitted.",
+    help="Overwrite the input file in place when -o/--out is omitted.",
 )
 @click.option(
     "--inplace/--no-inplace",

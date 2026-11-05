@@ -8,7 +8,7 @@ Usage: mlmm path-search [OPTIONS]
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
                                   1=milestones only; 2=+optimizer cycle tables,
-                                  per-stage timing, VRAM, deliverable paths;
+                                  per-stage timing, VRAM, output paths;
                                   3=everything (full config blocks, per-file
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
@@ -45,11 +45,11 @@ Options:
                                   (dmf.torch / CUDA) or cpu (dmf / NumPy). On a
                                   GPU out-of-memory error, retry with cpu.
                                   [default: gpu]
-  --refine-mode [peak|minima]     Refinement seed around the highest-energy
-                                  image: 'peak' uses HEI±1, 'minima' uses
-                                  nearest local minima. Defaults to peak for gsm
-                                  and minima for dmf.  [default: (peak for gsm,
-                                  minima for dmf)]
+  --refine-mode [peak|minima]     Refinement seed selection around the highest-
+                                  energy image (HEI): 'peak' uses HEI±1,
+                                  'minima' uses the nearest local minima in each
+                                  direction.  [default: (peak for gsm, minima
+                                  for dmf)]
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
   --movable-cutoff FLOAT          Distance cutoff (Å) from ML region for movable
@@ -76,9 +76,7 @@ Options:
                                   MEP stage.  [default: (300); x>=1]
   --dmf-max-iterations, --max-cycles-dmf INTEGER RANGE
                                   Maximum IPOPT iterations for the DMF MEP
-                                  stage. This is a solver iteration count, not a
-                                  string-optimizer cycle count.  [default:
-                                  (3000); x>=1]
+                                  stage.  [default: (3000); x>=1]
   --climb / --no-climb            Enable transition-state search after path
                                   growth.  [default: climb]
   --opt-mode [grad|hess]          Single-structure optimizer: grad (=LBFGS) or
@@ -89,15 +87,14 @@ Options:
                                   ./result_path_search/]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for single-structure
-                                  optimizations only. The MEP itself keeps
-                                  --thresh-gsm / --dmf-tol.  [default: (gau)]
+                                  optimizations only.  [default: (gau)]
   --thresh-gsm [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for the GSM string
                                   optimizer.  [default: (gau_loose)]
   --dmf-tol, --thresh-dmf TEXT    IPOPT dual-infeasibility tolerance for the DMF
                                   path optimizer: tight (0.04) | middle (0.10) |
-                                  loose (0.20) or a positive float. This is not
-                                  a Gaussian preset.  [default: (tight)]
+                                  loose (0.20) or a positive float.  [default:
+                                  (tight)]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
   --show-config / --no-show-config
@@ -106,8 +103,8 @@ Options:
                                   [default: no-show-config]
   --dry-run / --no-dry-run        Validate options and inputs without running
                                   path search.  [default: no-dry-run]
-  --preopt / --no-preopt          If True, run initial single-structure
-                                  optimizations of inputs.  [default: preopt]
+  --preopt / --no-preopt          Run initial single-structure optimizations of
+                                  the inputs.  [default: preopt]
   --align / --no-align            After optional preoptimization, align adjacent
                                   inputs in sequence and match frozen-atom
                                   positions while relaxing the remaining atoms.
@@ -141,12 +138,11 @@ Options:
                                   Link-atom position mode: scaled (g-factor) or
                                   fixed (1.09/1.01 Å).  [default: (scaled)]
   --mm-backend [hessian_ff|openmm]
-                                  MM backend: 'hessian_ff' (the MM engine
-                                  bundled with mlmm-toolkit; default) or
-                                  'openmm'. MM Hessians use finite differences
-                                  by default; set calc.mm_fd: false for the
-                                  hessian_ff analytical path.  [default:
-                                  (hessian_ff)]
+                                  MM backend: 'hessian_ff' (bundled with mlmm-
+                                  toolkit) or 'openmm'. MM Hessians use finite
+                                  differences by default; set calc.mm_fd: false
+                                  for analytical Hessians with hessian_ff.
+                                  [default: (hessian_ff)]
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers when present in parm7.  [default:
                                   (cmap)]
@@ -158,11 +154,10 @@ Options:
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
   --precision [tf32|fp32|fp64]    MLIP backend precision: tf32, fp32 (IEEE) or
-                                  fp64. Unset defaults per backend (uma: fp32;
-                                  orb, mace: fp64). tf32 uses TF32 matmul for
-                                  speed (uma, orb only); avoid it for Hessians.
-                                  aimnet2: fp32 only.  [default: (per backend:
-                                  uma fp32; orb, mace fp64)]
+                                  fp64. tf32 uses TF32 matmul for speed (uma,
+                                  orb only); avoid it for Hessians. aimnet2:
+                                  fp32 only.  [default: (per backend: uma fp32;
+                                  orb, mace fp64)]
   --compile / --no-compile        torch.compile the UMA or ORB model: slower
                                   first call, slightly faster afterwards; worth
                                   it only for long runs.  [default: (off)]
@@ -182,24 +177,23 @@ Options:
                                   mace, aimnet2 / aimnet2-nse for aimnet2).
                                   [default: (the selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
-                                  ASE Calculator used as the ML-region backend
-                                  (overrides --backend). Couples GFN-xTB / DFTB+
-                                  / any ASE engine. See --calc-file-func-name.
+                                  ASE Calculator for the ML region (overrides
+                                  --backend). Works with GFN-xTB, DFTB+ or any
+                                  ASE engine. See --calc-file-func-name.
   --calc-factory, --calc-file-func-name TEXT
                                   Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
-                                  Calculator instance). CLI overrides config
-                                  YAML; otherwise defaults to get_calculator.
-                                  [default: (get_calculator)]
+                                  Calculator instance).  [default:
+                                  (get_calculator)]
   --deterministic / --no-deterministic
                                   Make repeated runs on the same software
                                   versions and hardware give identical results
                                   (PyTorch deterministic algorithms; AM1-BCC
                                   ligand charges are not covered, so reuse one
-                                  parm7). Slower; raises for detected
-                                  unsupported ops; custom calculators (--calc-
-                                  file) and AIMNet2 are not supported: the run
-                                  stops.  [default: no-deterministic]
+                                  parm7). Slower; raises an error on unsupported
+                                  ops; custom calculators (--calc-file) and
+                                  AIMNet2 are not supported: the run stops.
+                                  [default: no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a
@@ -213,10 +207,10 @@ Options:
                                   PySCF execution engine used by --backend dft.
                                   [default: (gpu)]
   --save-scf-checkpoint / --no-save-scf-checkpoint
-                                  Persist a structure-bound PySCF checkpoint.
+                                  Save a structure-bound PySCF checkpoint.
                                   [default: (disabled)]
   --scf-checkpoint FILE           Load/save the optional structure-bound PySCF
-                                  checkpoint at PATH.
+                                  checkpoint.
   --dft-low-memory, --lowmem / --no-dft-low-memory, --no-lowmem
                                   Use GPU4PySCF rks_lowmem for closed-shell GPU
                                   DFT; open-shell GPU and CPU use standard

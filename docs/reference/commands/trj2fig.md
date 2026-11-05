@@ -8,16 +8,16 @@ Usage: mlmm trj2fig [OPTIONS] [EXTRA_OUTS]...
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
                                   1=milestones only; 2=+detailed step logging
-                                  and deliverable paths; 3=everything (full
-                                  config blocks, per-file paths, DEBUG logging).
+                                  and output paths; 3=everything (full config
+                                  blocks, per-file paths, DEBUG logging).
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
   -i, --input FILE                XYZ trajectory file  [required]
-  -o, --output, --out FILE        Output file(s). You can repeat -o, and/or list
-                                  extra filenames after options
-                                  (.png/.jpg/.jpeg/.html/.svg/.pdf/.csv). If
-                                  nothing is given, defaults to energy.png.
+  -o, --output, --out FILE        Output file(s)
+                                  (.png/.jpg/.jpeg/.html/.svg/.pdf/.csv). You
+                                  can repeat -o and/or list extra filenames
+                                  after options. Defaults to energy.png.
   --unit [kcal|hartree]           Energy unit.  [default: kcal]
   -r, --reference TEXT            Reference: "init" (initial frame; last frame
                                   if --reverse-x), "None" (absolute E), or an
@@ -36,15 +36,14 @@ Options:
                                   defaults to its built-in model.  [default:
                                   (the selected backend's own model)]
   --precision [tf32|fp32|fp64]    MLIP backend precision: tf32, fp32 (IEEE) or
-                                  fp64. Unset defaults per backend (uma: fp32;
-                                  orb, mace: fp64). tf32 uses TF32 matmul for
-                                  speed (uma, orb only); avoid it for Hessians.
-                                  aimnet2: fp32 only.  [default: (per backend:
-                                  uma fp32; orb, mace fp64)]
+                                  fp64. tf32 uses TF32 matmul for speed (uma,
+                                  orb only); avoid it for Hessians. aimnet2:
+                                  fp32 only.  [default: (per backend: uma fp32;
+                                  orb, mace fp64)]
   --compile / --no-compile        torch.compile the UMA or ORB model: slower
                                   first call, slightly faster afterwards; worth
                                   it only for long runs.  [default: (off)]
-  --out-json / --no-out-json      Write machine-readable result.json next to the
-                                  first output.  [default: no-out-json]
+  --out-json / --no-out-json      Write result.json next to the first output.
+                                  [default: no-out-json]
   -h, --help                      Show this message and exit.
 ```

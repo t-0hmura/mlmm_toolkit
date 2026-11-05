@@ -3537,10 +3537,7 @@ def _prepare_tsopt_output_dir(
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None, show_default="FiniteDifference",
-    help="How the ML backend builds the Hessian (Analytical or FiniteDifference); "
-         "overrides calc.hessian_calc_mode from YAML. "
-         "Runtime and memory depend on the backend and system; compare both "
-         "modes on a representative pilot.",
+    help="How the backend computes the Hessian.",
 )
 @click.option(
     "--max-cycles",
@@ -3699,11 +3696,10 @@ def _prepare_tsopt_output_dir(
     default=False,
     show_default=True,
     help=(
-        "Skip the terminal PHVA/frequency analysis after convergence (a plateau "
+        "Skip the final PHVA/frequency analysis after convergence (a plateau "
         "stop still runs it); RS-P-RFO/RS-I-RFO/TRIM also skip --flatten, which "
         "needs it. Standalone tsopt retains the final structure with unverified "
-        "saddle order; all skips IRC and the later stages of that segment "
-        "because no imaginary direction can be validated."
+        "saddle order; 'all' skips IRC and the later stages of that segment."
     ),
 )
 @click.option(
@@ -3733,7 +3729,7 @@ def _prepare_tsopt_output_dir(
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @add_ml_layer_detection_options()
 @add_precision_option()

@@ -376,8 +376,8 @@ def add_scan_common_options(
             default=bias_k_default,
             show_default="300.0",
             help=(
-                "Harmonic well strength k [eV/Å^2 for distances; eV/rad^2 for angles]. "
-                "YAML bias.k applies when this option is omitted; explicit CLI wins."
+                "Restraint strength k [eV/Å^2 for distances; eV/rad^2 for angles]. "
+                "YAML bias.k applies when this option is omitted."
             ),
         ),
         click.option(

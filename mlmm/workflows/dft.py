@@ -642,7 +642,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
 
 
 @click.command(
-    help="Single-point ML-region DFT with ML(dft)/MM energy recombination.",
+    help="Single-point DFT/MM ONIOM energy.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -742,7 +742,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     type=click.Choice(["gpu", "cpu"], case_sensitive=False),
     default="gpu",
     show_default=True,
-    help="SCF backend: gpu (GPU4PySCF, raises error if unavailable) or cpu (PySCF).",
+    help="SCF backend: gpu (GPU4PySCF, fails if unavailable) or cpu (PySCF).",
 )
 @click.option(
     "--dft-low-memory/--no-dft-low-memory",
@@ -759,8 +759,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "scf_stepwise_grid",
     default=DFT_KW["scf_stepwise_grid"],
     show_default=True,
-    help="Converge the SCF on a coarse grid first, then on the final grid "
-         "with the same settings.",
+    help="Converge the SCF on a coarse grid first, then on the final grid.",
 )
 @click.option(
     "--dft-nprocs",
@@ -861,7 +860,7 @@ def _compute_atomic_spin_densities(mol, mf) -> Dict[str, Optional[List[float]]]:
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @add_allow_charge_mult_mismatch_option()
 @add_ml_layer_detection_options()

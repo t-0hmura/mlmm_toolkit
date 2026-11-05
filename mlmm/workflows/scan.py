@@ -296,8 +296,8 @@ def _snapshot_geometry(g) -> Any:
               help="Maximum scanned dihedral change per step [degree].")
 @click.option("--restraint-k", "--bias-k", "bias_k", type=float, default=None, show_default="300.0",
               help=(
-                  "Harmonic well strength k [eV/Å^2 for distances; eV/rad^2 for angles]. "
-                  "YAML bias.k applies when this option is omitted; explicit CLI wins."
+                  "Restraint strength k [eV/Å^2 for distances; eV/rad^2 for angles]. "
+                  "YAML bias.k applies when this option is omitted."
               ))
 @click.option(
     "--max-cycles",
@@ -327,8 +327,7 @@ def _snapshot_geometry(g) -> Any:
     default=False,
     show_default=True,
     help="Write per-step optimizer trajectory files. "
-         "scan_trj.xyz is always written per-stage and as a combined file in out-dir; "
-         "scan.pdb companions are written when --convert-files is enabled.",
+         "scan_trj.xyz is always written. scan.pdb requires --convert-files.",
 )
 @click.option("-o", "--out-dir", type=str, default=OUT_DIR_SCAN, show_default=True,
               help="Base output directory.")

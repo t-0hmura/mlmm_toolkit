@@ -529,7 +529,7 @@ def _select_closest_state_1d(
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @add_scan_common_options(
     out_dir_default=OUT_DIR_SCAN2D,

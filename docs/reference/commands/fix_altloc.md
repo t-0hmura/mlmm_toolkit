@@ -3,29 +3,26 @@
 ```text
 Usage: mlmm fix-altloc [OPTIONS]
 
-  Blank PDB altLoc column (col 17) without shifting, and select one coherent
-  label per residue by highest mean occupancy, then earliest appearance.
+  Keep one altLoc per residue (highest mean occupancy, then earliest appearance)
+  and blank the altLoc column (col 17).
 
 Options:
   -v, --verbose LEVEL           Console verbosity 0-3 (default 2). 0=silent;
                                 1=milestones only; 2=+detailed step logging and
-                                deliverable paths; 3=everything (full config
-                                blocks, per-file paths, DEBUG logging).
-                                [0<=x<=3]
+                                output paths; 3=everything (full config blocks,
+                                per-file paths, DEBUG logging).  [0<=x<=3]
   --help-advanced               Show all options (including advanced settings)
                                 and exit.
   -i, --input PATH              Input PDB file or directory.  [required]
   -o, --output, --out PATH      Output file (if input is a file) or output
                                 directory (if input is a directory).
   --recursive / --no-recursive  When input is a directory, process *.pdb
-                                recursively (including subdirectories).
-                                [default: no-recursive]
+                                recursively.  [default: no-recursive]
   --inplace / --no-inplace      Overwrite input file(s) in place (creates .bak
                                 next to each file).  [default: no-inplace]
   --overwrite / --no-overwrite  Allow overwriting existing output files.
                                 [default: no-overwrite]
-  --force / --no-force          Process files even if no altLoc is detected
-                                (default: skip files without altLoc).  [default:
-                                no-force]
+  --force / --no-force          Process files even if no altLoc is detected.
+                                [default: no-force]
   -h, --help                    Show this message and exit.
 ```

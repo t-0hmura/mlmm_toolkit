@@ -1967,7 +1967,7 @@ end
     type=str,
     default=None,
     show_default="depends on --mode",
-    help="QM method and basis set. Defaults depend on mode.",
+    help="QM method and basis set.",
 )
 @click.option(
     "-q",
@@ -2031,8 +2031,8 @@ end
     default="scaled",
     show_default=True,
     help="Rule for the estimated link-H positions written as comments in the ORCA input: "
-         "'scaled' uses the Morokuma/Dapprich g-factor (matches MLMMCore runtime), "
-         "'fixed' a fixed 1.09/1.01 Å bond length. The Gaussian input does not change.",
+         "'scaled' uses the Morokuma/Dapprich g-factor, "
+         "'fixed' uses a fixed 1.09/1.01 Å bond length. The Gaussian input does not change.",
 )
 def cli(
     parm7: Path,

@@ -457,7 +457,7 @@ def _write_layered_pdb_with_ref(
     type=click.Choice(["g16", "orca"], case_sensitive=False),
     default=None,
     show_default="inferred from the input suffix",
-    help="Input mode. If omitted, inferred from input suffix.",
+    help="Input format.",
 )
 @click.option(
     "-o",
@@ -477,7 +477,7 @@ def _write_layered_pdb_with_ref(
     "--allow-unverified-ref-order/--no-allow-unverified-ref-order",
     default=False,
     show_default=True,
-    help="Allow positional --ref-pdb mapping when repeated elements make "
+    help="Map --ref-pdb by atom order when repeated elements make "
          "atom identity unverifiable. Use only after independently checking order.",
 )
 def cli(

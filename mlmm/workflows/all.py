@@ -4420,8 +4420,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 
 @click.command(
     cls=BoolCompatCommand,
-    help="Run pocket extraction → (optional scan-defined single-structure route) → MEP search in one command.\n"
-         "If exactly one input is provided: (a) with --scan-lists, stage results feed into path-opt (or path_search with --refine-path); "
+    help="Run ML-region selection → optional staged scan → MEP search in one command.\n"
+         "If exactly one input is provided: (a) with --scan-lists, run staged scan and use stage results as inputs for the MEP search; "
          "(b) with --tsopt and no --scan-lists, run TSOPT-only mode.",
     context_settings={
         "help_option_names": ["-h", "--help"],
@@ -4461,24 +4461,22 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "-o", "--out-dir", "out_dir",
     type=click.Path(path_type=Path, file_okay=False),
     default=Path(OUT_DIR_ALL), show_default=True,
-    help="Top-level output directory for the pipeline."
+    help="Top-level output directory."
 )
 # ===== Extractor knobs (subset of extract.parse_args) =====
 @click.option(
     "-r", "--radius", type=click.FloatRange(min=0.0), default=2.6, show_default=True,
     help=(
-        "Inclusion cutoff (Å) around center atoms. Zero is accepted and "
-        "evaluated internally as 0.001 Å (effectively off for ordinary "
-        "radius-based neighbors)."
+        "Inclusion cutoff (Å) around center atoms. 0 disables radius-based expansion."
     ),
 )
 @click.option("--radius-het2het", type=click.FloatRange(min=0.0), default=0.0, show_default=True,
-              help="Independent hetero–hetero cutoff (Å) for non‑C/H pairs.")
+              help="Independent hetero-hetero cutoff (Å) for non-C/H pairs.")
 @click.option("--include-h2o/--no-include-h2o", "include_h2o", default=True, show_default=True,
               help="Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL) in the pocket.")
 @click.option("--exclude-backbone/--no-exclude-backbone", "exclude_backbone", default=False, show_default=True,
-              help=("Delete main-chain atoms from amino acids; only the main chain between "
-                    "peptide-bonded extraction centers is kept."))
+              help=("Exclude amino-acid backbone atoms from the ML region, except between "
+                    "peptide-bonded extraction centers."))
 @click.option("--add-linkh/--no-add-linkh", "add_linkh", default=False, show_default=True,
               help=("Add extractor-only link H to scratch pocket PDBs. The ML/MM "
                     "model selection remains link-free; runtime link H are generated "
@@ -4504,8 +4502,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=int,
     default=None,
     help=(
-        "Override the net charge of the ML region/model atoms. "
-        "Highest priority over the charge derived by the workflow."
+        "Net charge of the ML region. Overrides the charge derived by the workflow."
     ),
 )
 @click.option(
@@ -4611,8 +4608,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @click.option("--max-cycles-gsm", type=click.IntRange(min=1), default=None, show_default="300",
               help="Maximum GSM string-optimizer cycles for the MEP stage.")
 @click.option("--dmf-max-iterations", "--max-cycles-dmf", "max_cycles_dmf", type=click.IntRange(min=1), default=None, show_default="3000",
-              help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
-                    "iteration count, not a string-optimizer cycle count."))
+              help="Maximum IPOPT iterations for the DMF MEP stage.")
 @click.option("--climb/--no-climb", default=True, show_default=True,
               help="Enable climbing image for standard GSM segments (bridge segments always disable climbing).")
 @click.option(
@@ -4643,9 +4639,10 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=False,
     show_default=True,
     help=(
-        "When disabled, run single-pass path-opt with the selected MEP optimizer between each adjacent pair and concatenate the "
-        "segments (no path-search); when enabled, run recursive path-search on the full ordered series: it proposes "
-        "multistep reaction paths and also refines a single-step MEP, which can improve a poor HEI or TS estimate."
+        "By default, run a single-pass path-opt with the selected GSM/DMF method between each adjacent pair and "
+        "concatenate the segments. Use --refine-path to run recursive "
+        "path-search on the full ordered series: it proposes multistep reaction paths and "
+        "also refines a single-step MEP, which can improve a poor HEI or TS estimate."
     ),
 )
 @click.option(
@@ -4677,8 +4674,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     show_default="tight",
     help=(
         "IPOPT dual-infeasibility tolerance for the DMF MEP stage: "
-        "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
-        "This is not a Gaussian preset."
+        "tight (0.04) | middle (0.10) | loose (0.20) or a positive float."
     ),
 )
 @click.option(
@@ -4715,13 +4711,11 @@ def _configure_all_help_visibility(command: click.Command) -> None:
               help="Run input preparation and preflight checks in a temporary directory, "
                    "print the execution plan, and skip calculation stages.")
 @click.option("--preopt/--no-preopt", "pre_opt", default=True, show_default=True,
-              help="Run initial single-structure optimizations of the pocket inputs.")
+              help="Run initial single-structure optimizations of input structures.")
 @click.option("--hessian-calc-mode",
               type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
               default=None, show_default="FiniteDifference",
-              help=("Common MLIP Hessian mode forwarded to tsopt, irc and freq. "
-                    "Runtime and memory depend on "
-                    "the backend and system; compare both modes on a representative pilot."))
+              help="How the backend computes the Hessian in tsopt, irc and freq.")
 @click.option(
     "--detect-layer/--no-detect-layer",
     "detect_layer",
@@ -4732,7 +4726,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 )
 # ===== Post-processing toggles =====
 @click.option("--tsopt/--no-tsopt", "do_tsopt", default=False, show_default=True,
-              help="TS optimization + EulerPC IRC per reactive segment (or TSOPT-only mode for single-structure), and build energy diagrams.")
+              help="Run TS optimization and IRC per reactive segment (or TSOPT-only mode for a single structure) and build energy diagrams.")
 @click.option(
     "--tsopt-from-mep-tan/--no-tsopt-from-mep-tan",
     default=True,
@@ -4755,7 +4749,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     "flatten",
     default=False,
     show_default=True,
-    help="Enable the extra-imaginary-mode flattening loop in tsopt (grad: dimer loop, hess: post-RS-P-RFO); --no-flatten forces flatten_max_iter=0.",
+    help="Enable the extra-imaginary-mode flattening loop in tsopt; --no-flatten forces flatten_max_iter=0.",
 )
 @click.option(
     "--reject-uphill/--no-reject-uphill",
@@ -4763,7 +4757,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=False,
     show_default=True,
     help=(
-        "Opt in to rejecting uphill RFO trials during post-IRC endpoint "
+        "Reject uphill RFO steps during post-IRC endpoint "
         "re-optimization only (tolerance: 1e-4 Hartree). Does not affect "
         "TS optimization or path search."
     ),
@@ -4831,10 +4825,9 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=False,
     show_default=True,
     help=(
-        "Skip terminal PHVA/frequency analysis in tsopt. The TS structure is "
-        "retained with unverified saddle order, and all skips IRC and the later "
-        "stages of that segment because no imaginary reaction direction can be "
-        "validated; other segments continue."
+        "Skip the final PHVA/frequency analysis in tsopt. The TS structure is "
+        "retained with unverified saddle order, and IRC and the later stages of "
+        "that segment are skipped; other segments continue."
     ),
 )
 @click.option("--tsopt-out-dir", type=click.Path(path_type=Path, file_okay=False), default=None,
@@ -4919,9 +4912,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     type=click.Path(path_type=Path, exists=True, dir_okay=False),
     default=None,
     help=(
-        "Reference PDB for topology/B-factor layer information when -i provides XYZ inputs. "
-        "Used for define-layer, mm_parm, ml_region, and forwarded to downstream tools "
-        "(tsopt, irc, freq, path_search) as --ref-pdb."
+        "Reference PDB for topology/B-factor layer information when -i provides XYZ inputs."
     ),
 )
 @click.option(

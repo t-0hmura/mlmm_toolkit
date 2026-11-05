@@ -8,8 +8,8 @@ Usage: mlmm oniom-export [OPTIONS]
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
                                   1=milestones only; 2=+detailed step logging
-                                  and deliverable paths; 3=everything (full
-                                  config blocks, per-file paths, DEBUG logging).
+                                  and output paths; 3=everything (full config
+                                  blocks, per-file paths, DEBUG logging).
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
@@ -27,8 +27,8 @@ Options:
   --mode [g16|orca]               Export mode. If omitted, inferred from -o
                                   suffix: .gjf/.com -> g16, .inp -> orca.
                                   [default: (inferred from the output suffix)]
-  --method TEXT                   QM method and basis set. Defaults depend on
-                                  mode.  [default: (depends on --mode)]
+  --method TEXT                   QM method and basis set.  [default: (depends
+                                  on --mode)]
   -q, --charge INTEGER            Charge of QM region.  [required]
   -m, --multiplicity INTEGER RANGE
                                   Multiplicity of QM region.  [default: 1; x>=1]
@@ -51,9 +51,9 @@ Options:
   --link-atom-method [scaled|fixed]
                                   Rule for the estimated link-H positions
                                   written as comments in the ORCA input:
-                                  'scaled' uses the Morokuma/Dapprich g-factor
-                                  (matches MLMMCore runtime), 'fixed' a fixed
-                                  1.09/1.01 Å bond length. The Gaussian input
-                                  does not change.  [default: scaled]
+                                  'scaled' uses the Morokuma/Dapprich g-factor,
+                                  'fixed' uses a fixed 1.09/1.01 Å bond length.
+                                  The Gaussian input does not change.  [default:
+                                  scaled]
   -h, --help                      Show this message and exit.
 ```

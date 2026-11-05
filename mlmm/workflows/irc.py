@@ -240,7 +240,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
 
 
 @click.command(
-    help="Run an IRC calculation with EulerPC. Only the documented CLI options are accepted; all other settings come from YAML.",
+    help="Run an IRC calculation with EulerPC. Settings without a CLI option come from YAML.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -328,10 +328,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "--hessian-calc-mode",
     type=click.Choice(["Analytical", "FiniteDifference"], case_sensitive=False),
     default=None, show_default="FiniteDifference",
-    help=("How the ML backend builds the Hessian (Analytical or "
-          "FiniteDifference); overrides calc.hessian_calc_mode from YAML. "
-          "Runtime and memory depend on the "
-          "backend and system; compare both modes on a representative pilot."),
+    help="How the backend computes the Hessian.",
 )
 @click.option(
     "--config",
@@ -447,7 +444,7 @@ def _echo_convert_trj_to_pdb_if_exists(trj_path: Path, ref_pdb: Path, out_path: 
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @add_ml_layer_detection_options()
 @add_precision_option()

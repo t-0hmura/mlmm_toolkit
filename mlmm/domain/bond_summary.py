@@ -82,8 +82,8 @@ def _load_geom(path: str):
 )
 @click.option(
     "--metal-delta-fraction", default=0.40, show_default=True,
-    help="Change in distance, as a fraction of the scaled covalent radii sum, "
-         "that a pair containing a metal atom needs to count as formed or broken.",
+    help="Minimum distance change, as a fraction of the scaled covalent radii sum, "
+         "for a bond involving a metal atom to count as formed or broken.",
 )
 @click.option(
     "--one-based/--zero-based", default=True, show_default=True,

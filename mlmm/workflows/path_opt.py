@@ -971,8 +971,7 @@ def _run_dmf_mep(
 @click.option("--max-cycles-gsm", type=click.IntRange(min=1), default=None, show_default="300",
               help="Maximum GSM string-optimizer cycles for the MEP stage.")
 @click.option("--dmf-max-iterations", "--max-cycles-dmf", "max_cycles_dmf", type=click.IntRange(min=1), default=None, show_default="3000",
-              help=("Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
-                    "iteration count, not a string-optimizer cycle count."))
+              help="Maximum IPOPT iterations for the DMF MEP stage.")
 @click.option(
     "--climb/--no-climb",
     default=True,
@@ -1029,8 +1028,7 @@ def _run_dmf_mep(
     default=None,
     show_default="gau",
     help=(
-        "Convergence preset for endpoint preoptimization only. "
-        "The MEP itself keeps --thresh-gsm / --dmf-tol."
+        "Convergence preset for endpoint preoptimization only."
     ),
 )
 @click.option(
@@ -1051,8 +1049,7 @@ def _run_dmf_mep(
     show_default="tight",
     help=(
         "IPOPT dual-infeasibility tolerance for the DMF path optimizer: "
-        "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
-        "This is not a Gaussian preset."
+        "tight (0.04) | middle (0.10) | loose (0.20) or a positive float."
     ),
 )
 @click.option(
@@ -1067,7 +1064,7 @@ def _run_dmf_mep(
     "show_config",
     default=False,
     show_default=True,
-    help="Print the loaded YAML file and its top-level keys, then continue.",
+    help="Print the loaded YAML path and its top-level keys before running.",
 )
 @click.option(
     "--dry-run/--no-dry-run",
@@ -1160,7 +1157,7 @@ def _run_dmf_mep(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend: 'hessian_ff' (the MM engine bundled with mlmm-toolkit; default) or 'openmm'. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend: 'hessian_ff' (bundled with mlmm-toolkit) or 'openmm'. MM Hessians use finite differences by default; set calc.mm_fd: false for analytical Hessians with hessian_ff.",
 )
 @click.option(
     "--cmap/--no-cmap",
@@ -1174,7 +1171,7 @@ def _run_dmf_mep(
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @click.option(
     "--ref-pdb",

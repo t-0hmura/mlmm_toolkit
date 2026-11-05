@@ -3,13 +3,13 @@
 ```text
 Usage: mlmm define-layer [OPTIONS]
 
-  Define 3-layer ML/MM system based on distance from ML region.
+  Define a 3-layer ML/MM system by distance from the ML region.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
                                   1=milestones only; 2=+detailed step logging
-                                  and deliverable paths; 3=everything (full
-                                  config blocks, per-file paths, DEBUG logging).
+                                  and output paths; 3=everything (full config
+                                  blocks, per-file paths, DEBUG logging).
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
@@ -24,8 +24,7 @@ Options:
                                   Distance cutoff (Å) from ML region for movable
                                   MM atoms. Atoms beyond this distance are
                                   frozen.  [default: 8.0]
-  -o, --output FILE               Output PDB file with B-factors set to layer
-                                  values. Defaults to '<input>_layered.pdb'.
+  -o, --output FILE               Output PDB file with layer IDs in B-factors.
                                   [default: (<input>_layered.pdb)]
   --one-based / --zero-based      Interpret --model-indices as 1-based or
                                   0-based.  [default: one-based]

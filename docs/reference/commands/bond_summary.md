@@ -8,9 +8,8 @@ Usage: mlmm bond-summary [OPTIONS] [EXTRA_INPUTS]...
 Options:
   -v, --verbose LEVEL           Console verbosity 0-3 (default 2). 0=silent;
                                 1=milestones only; 2=+detailed step logging and
-                                deliverable paths; 3=everything (full config
-                                blocks, per-file paths, DEBUG logging).
-                                [0<=x<=3]
+                                output paths; 3=everything (full config blocks,
+                                per-file paths, DEBUG logging).  [0<=x<=3]
   --help-advanced               Show all options (including advanced settings)
                                 and exit.
   -i, --input TEXT              Input structure files (XYZ/PDB/GJF). Repeat -i
@@ -19,9 +18,9 @@ Options:
                                 [default: cpu]
   --bond-factor FLOAT           Scaling factor for covalent radii sum.
                                 [default: 1.2]
-  --metal-delta-fraction FLOAT  Change in distance, as a fraction of the scaled
-                                covalent radii sum, that a pair containing a
-                                metal atom needs to count as formed or broken.
+  --metal-delta-fraction FLOAT  Minimum distance change, as a fraction of the
+                                scaled covalent radii sum, for a bond involving
+                                a metal atom to count as formed or broken.
                                 [default: 0.4]
   --one-based / --zero-based    Use 1-based atom indices in output.  [default:
                                 one-based]

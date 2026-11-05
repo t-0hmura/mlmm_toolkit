@@ -3,15 +3,15 @@
 ```text
 Usage: mlmm all [OPTIONS]
 
-  Run pocket extraction → (optional scan-defined single-structure route) → MEP
-  search in one command. If exactly one input is provided: (a) with --scan-
-  lists, stage results feed into path-opt (or path_search with --refine-path);
-  (b) with --tsopt and no --scan-lists, run TSOPT-only mode.
+  Run ML-region selection → optional staged scan → MEP search in one command. If
+  exactly one input is provided: (a) with --scan-lists, run staged scan and use
+  stage results as inputs for the MEP search; (b) with --tsopt and no --scan-
+  lists, run TSOPT-only mode.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
                                   1=milestones only; 2=+optimizer cycle tables,
-                                  per-stage timing, VRAM, deliverable paths;
+                                  per-stage timing, VRAM, output paths;
                                   3=everything (full config blocks, per-file
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
@@ -32,22 +32,21 @@ Options:
                                   starts radius expansion. When omitted,
                                   extraction is skipped and full structures are
                                   used directly.
-  -o, --out-dir DIRECTORY         Top-level output directory for the pipeline.
-                                  [default: result_all]
-  -r, --radius FLOAT RANGE        Inclusion cutoff (Å) around center atoms. Zero
-                                  is accepted and evaluated internally as 0.001
-                                  Å (effectively off for ordinary radius-based
-                                  neighbors).  [default: 2.6; x>=0.0]
-  --radius-het2het FLOAT RANGE    Independent hetero–hetero cutoff (Å) for
-                                  non‑C/H pairs.  [default: 0.0; x>=0.0]
+  -o, --out-dir DIRECTORY         Top-level output directory.  [default:
+                                  result_all]
+  -r, --radius FLOAT RANGE        Inclusion cutoff (Å) around center atoms. 0
+                                  disables radius-based expansion.  [default:
+                                  2.6; x>=0.0]
+  --radius-het2het FLOAT RANGE    Independent hetero-hetero cutoff (Å) for
+                                  non-C/H pairs.  [default: 0.0; x>=0.0]
   --include-h2o / --no-include-h2o
                                   Include waters (HOH/WAT/H2O/DOD/TIP/TIP3/SOL)
                                   in the pocket.  [default: include-h2o]
   --exclude-backbone / --no-exclude-backbone
-                                  Delete main-chain atoms from amino acids; only
-                                  the main chain between peptide-bonded
-                                  extraction centers is kept.  [default: no-
-                                  exclude-backbone]
+                                  Exclude amino-acid backbone atoms from the ML
+                                  region, except between peptide-bonded
+                                  extraction centers.  [default: no-exclude-
+                                  backbone]
   --add-linkh / --no-add-linkh    Add extractor-only link H to scratch pocket
                                   PDBs. The ML/MM model selection remains link-
                                   free; runtime link H are generated from parm7
@@ -65,9 +64,8 @@ Options:
   -l, --ligand-charge TEXT        Either a total charge (number) to distribute
                                   across unknown residues or a mapping like
                                   'GPP:-3,MMT:-1'.
-  -q, --charge INTEGER            Override the net charge of the ML region/model
-                                  atoms. Highest priority over the charge
-                                  derived by the workflow.
+  -q, --charge INTEGER            Net charge of the ML region. Overrides the
+                                  charge derived by the workflow.
   --parm7, --parm FILE            Pre-built AMBER parm7 topology file. When
                                   provided, mm_parm generation is skipped.
   --model-pdb FILE                ML-only atom-selection PDB. It must be an
@@ -126,9 +124,7 @@ Options:
                                   MEP stage.  [default: (300); x>=1]
   --dmf-max-iterations, --max-cycles-dmf INTEGER RANGE
                                   Maximum IPOPT iterations for the DMF MEP
-                                  stage. This is a solver iteration count, not a
-                                  string-optimizer cycle count.  [default:
-                                  (3000); x>=1]
+                                  stage.  [default: (3000); x>=1]
   --climb / --no-climb            Enable climbing image for standard GSM
                                   segments (bridge segments always disable
                                   climbing).  [default: climb]
@@ -143,15 +139,14 @@ Options:
                                   during the run, forwarding the same flag to
                                   scan/tsopt/freq.  [default: no-dump]
   --refine-path / --no-refine-path
-                                  When disabled, run single-pass path-opt with
-                                  the selected MEP optimizer between each
-                                  adjacent pair and concatenate the segments (no
-                                  path-search); when enabled, run recursive
-                                  path-search on the full ordered series: it
-                                  proposes multistep reaction paths and also
-                                  refines a single-step MEP, which can improve a
-                                  poor HEI or TS estimate.  [default: no-refine-
-                                  path]
+                                  By default, run a single-pass path-opt with
+                                  the selected GSM/DMF method between each
+                                  adjacent pair and concatenate the segments.
+                                  Use --refine-path to run recursive path-search
+                                  on the full ordered series: it proposes
+                                  multistep reaction paths and also refines a
+                                  single-step MEP, which can improve a poor HEI
+                                  or TS estimate.  [default: no-refine-path]
   --thresh [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for single-structure
                                   optimizations and scan relaxations. The MEP
@@ -163,8 +158,8 @@ Options:
                                   (gau_loose)]
   --dmf-tol, --thresh-dmf TEXT    IPOPT dual-infeasibility tolerance for the DMF
                                   MEP stage: tight (0.04) | middle (0.10) |
-                                  loose (0.20) or a positive float. This is not
-                                  a Gaussian preset.  [default: (tight)]
+                                  loose (0.20) or a positive float.  [default:
+                                  (tight)]
   --thresh-post [gau_loose|gau|gau_tight|gau_vtight|baker|never]
                                   Convergence preset for TS and post-IRC
                                   endpoint optimizations.  [default: baker]
@@ -187,21 +182,18 @@ Options:
                                   plan, and skip calculation stages.  [default:
                                   no-dry-run]
   --preopt / --no-preopt          Run initial single-structure optimizations of
-                                  the pocket inputs.  [default: preopt]
+                                  input structures.  [default: preopt]
   --hessian-calc-mode [analytical|finitedifference]
-                                  Common MLIP Hessian mode forwarded to tsopt,
-                                  irc and freq. Runtime and memory depend on the
-                                  backend and system; compare both modes on a
-                                  representative pilot.  [default:
-                                  (FiniteDifference)]
+                                  How the backend computes the Hessian in tsopt,
+                                  irc and freq.  [default: (FiniteDifference)]
   --detect-layer / --no-detect-layer
                                   Automatically detect ML/MM layers from input
                                   PDB B-factors (ML=0, MovableMM=10,
                                   FrozenMM=20) in downstream tools.  [default:
                                   detect-layer]
-  --tsopt / --no-tsopt            TS optimization + EulerPC IRC per reactive
-                                  segment (or TSOPT-only mode for single-
-                                  structure), and build energy diagrams.
+  --tsopt / --no-tsopt            Run TS optimization and IRC per reactive
+                                  segment (or TSOPT-only mode for a single
+                                  structure) and build energy diagrams.
                                   [default: no-tsopt]
   --tsopt-from-mep-tan / --no-tsopt-from-mep-tan
                                   Use the MEP tangent at the highest-energy
@@ -220,15 +212,13 @@ Options:
                                   Override tsopt --max-cycles.  [default:
                                   (100000); x>=1]
   --flatten / --no-flatten        Enable the extra-imaginary-mode flattening
-                                  loop in tsopt (grad: dimer loop, hess: post-
-                                  RS-P-RFO); --no-flatten forces
+                                  loop in tsopt; --no-flatten forces
                                   flatten_max_iter=0.  [default: no-flatten]
   --reject-uphill / --no-reject-uphill
-                                  Opt in to rejecting uphill RFO trials during
-                                  post-IRC endpoint re-optimization only
-                                  (tolerance: 1e-4 Hartree). Does not affect TS
-                                  optimization or path search.  [default: no-
-                                  reject-uphill]
+                                  Reject uphill RFO steps during post-IRC
+                                  endpoint re-optimization only (tolerance: 1e-4
+                                  Hartree). Does not affect TS optimization or
+                                  path search.  [default: no-reject-uphill]
   --stop-plateau / --no-stop-plateau
                                   Stop when the energy stops changing while the
                                   convergence criteria are still unmet, and
@@ -254,13 +244,12 @@ Options:
                                   Default follows irc.never_stop (off).
                                   [default: (no-irc-never-stop)]
   --skip-final-freq / --no-skip-final-freq
-                                  Skip terminal PHVA/frequency analysis in
+                                  Skip the final PHVA/frequency analysis in
                                   tsopt. The TS structure is retained with
-                                  unverified saddle order, and all skips IRC and
-                                  the later stages of that segment because no
-                                  imaginary reaction direction can be validated;
-                                  other segments continue.  [default: no-skip-
-                                  final-freq]
+                                  unverified saddle order, and IRC and the later
+                                  stages of that segment are skipped; other
+                                  segments continue.  [default: no-skip-final-
+                                  freq]
   --tsopt-out-dir DIRECTORY       Override tsopt output subdirectory (relative
                                   paths are resolved against the default).
                                   [default: (<segment>/ts)]
@@ -331,10 +320,7 @@ Options:
                                   combined with --tsopt, --thermo, or --dft.
                                   [default: convert-files]
   --ref-pdb FILE                  Reference PDB for topology/B-factor layer
-                                  information when -i provides XYZ inputs. Used
-                                  for define-layer, mm_parm, ml_region, and
-                                  forwarded to downstream tools (tsopt, irc,
-                                  freq, path_search) as --ref-pdb.
+                                  information when -i provides XYZ inputs.
   -b, --backend [uma|orb|mace|aimnet2|dft]
                                   High-level backend for the ONIOM model region.
                                   [default: (uma)]
@@ -371,13 +357,12 @@ Options:
   --print-every INTEGER RANGE     Print optimizer status every N cycles.
                                   [default: (100); x>=1]
   --precision [tf32|fp32|fp64]    MLIP backend precision: tf32, fp32 (IEEE) or
-                                  fp64. Unset defaults per backend (uma: fp32;
-                                  orb, mace: fp64). tf32 uses TF32 matmul for
-                                  speed (uma, orb only); avoid it for Hessians.
-                                  aimnet2: fp32 only. --precision-post overrides
-                                  it for TSOPT, IRC, endpoint optimization and
-                                  freq.  [default: (per backend: uma fp32; orb,
-                                  mace fp64)]
+                                  fp64. tf32 uses TF32 matmul for speed (uma,
+                                  orb only); avoid it for Hessians. aimnet2:
+                                  fp32 only. --precision-post overrides it for
+                                  TSOPT, IRC, endpoint optimization and freq.
+                                  [default: (per backend: uma fp32; orb, mace
+                                  fp64)]
   --precision-post [tf32|fp32|fp64]
                                   MLIP precision for TSOPT, IRC, the post-IRC
                                   endpoint optimizations and freq. Unset uses
@@ -402,24 +387,23 @@ Options:
                                   mace, aimnet2 / aimnet2-nse for aimnet2).
                                   [default: (the selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
-                                  ASE Calculator used as the ML-region backend
-                                  (overrides --backend). Couples GFN-xTB / DFTB+
-                                  / any ASE engine. See --calc-file-func-name.
+                                  ASE Calculator for the ML region (overrides
+                                  --backend). Works with GFN-xTB, DFTB+ or any
+                                  ASE engine. See --calc-file-func-name.
   --calc-factory, --calc-file-func-name TEXT
                                   Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
-                                  Calculator instance). CLI overrides config
-                                  YAML; otherwise defaults to get_calculator.
-                                  [default: (get_calculator)]
+                                  Calculator instance).  [default:
+                                  (get_calculator)]
   --deterministic / --no-deterministic
                                   Make repeated runs on the same software
                                   versions and hardware give identical results
                                   (PyTorch deterministic algorithms; AM1-BCC
                                   ligand charges are not covered, so reuse one
-                                  parm7). Slower; raises for detected
-                                  unsupported ops; custom calculators (--calc-
-                                  file) and AIMNet2 are not supported: the run
-                                  stops.  [default: no-deterministic]
+                                  parm7). Slower; raises an error on unsupported
+                                  ops; custom calculators (--calc-file) and
+                                  AIMNet2 are not supported: the run stops.
+                                  [default: no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a
@@ -427,10 +411,10 @@ Options:
                                   intentional nonstandard input such as a
                                   covalently-cut region.
   --save-scf-checkpoint / --no-save-scf-checkpoint
-                                  Persist a structure-bound PySCF checkpoint.
+                                  Save a structure-bound PySCF checkpoint.
                                   [default: (disabled)]
   --scf-checkpoint FILE           Load/save the optional structure-bound PySCF
-                                  checkpoint at PATH.
+                                  checkpoint.
   --dft-low-memory, --lowmem / --no-dft-low-memory, --no-lowmem
                                   Use GPU4PySCF rks_lowmem for closed-shell GPU
                                   DFT; open-shell GPU and CPU use standard

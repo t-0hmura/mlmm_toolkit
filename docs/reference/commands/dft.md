@@ -3,13 +3,13 @@
 ```text
 Usage: mlmm dft [OPTIONS]
 
-  Single-point ML-region DFT with ML(dft)/MM energy recombination.
+  Single-point DFT/MM ONIOM energy.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
                                   1=milestones only; 2=+detailed step logging
-                                  and deliverable paths; 3=everything (full
-                                  config blocks, per-file paths, DEBUG logging).
+                                  and output paths; 3=everything (full config
+                                  blocks, per-file paths, DEBUG logging).
                                   [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
                                   and exit.
@@ -50,7 +50,7 @@ Options:
                                   DFT integration grid level (0=coarse,
                                   3=default, 5=fine, 9=very fine).  [default: 3]
   --dft-engine, --engine [gpu|cpu]
-                                  SCF backend: gpu (GPU4PySCF, raises error if
+                                  SCF backend: gpu (GPU4PySCF, fails if
                                   unavailable) or cpu (PySCF).  [default: gpu]
   --dft-low-memory, --lowmem / --no-dft-low-memory, --no-lowmem
                                   Use gpu4pyscf rks_lowmem.RKS for closed-shell
@@ -60,8 +60,8 @@ Options:
                                   density fitting.  [default: dft-low-memory]
   --scf-stepwise-grid / --no-scf-stepwise-grid
                                   Converge the SCF on a coarse grid first, then
-                                  on the final grid with the same settings.
-                                  [default: scf-stepwise-grid]
+                                  on the final grid.  [default: scf-stepwise-
+                                  grid]
   --dft-nprocs INTEGER RANGE      PySCF/OpenMP CPU threads; GPU count is
                                   unaffected.  [default: (auto); x>=1]
   --dft-memory, --dft-mem TEXT    PySCF host RAM limit (for example 64GB or
@@ -105,7 +105,7 @@ Options:
   --cmap / --no-cmap              Preserve CMAP terms in both real and model MM
                                   layers when present in parm7.  [default:
                                   (cmap)]
-  --out-json / --no-out-json      Write machine-readable result.json to out_dir.
+  --out-json / --no-out-json      Write result.json to the output directory.
                                   [default: no-out-json]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was

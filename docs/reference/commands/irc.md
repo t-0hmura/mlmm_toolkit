@@ -3,13 +3,13 @@
 ```text
 Usage: mlmm irc [OPTIONS]
 
-  Run an IRC calculation with EulerPC. Only the documented CLI options are
-  accepted; all other settings come from YAML.
+  Run an IRC calculation with EulerPC. Settings without a CLI option come from
+  YAML.
 
 Options:
   -v, --verbose LEVEL             Console verbosity 0-3 (default 2). 0=silent;
                                   1=milestones only; 2=+optimizer cycle tables,
-                                  per-stage timing, VRAM, deliverable paths;
+                                  per-stage timing, VRAM, output paths;
                                   3=everything (full config blocks, per-file
                                   paths, DEBUG logging).  [0<=x<=3]
   --help-advanced                 Show all options (including advanced settings)
@@ -60,11 +60,7 @@ Options:
   -o, --out-dir TEXT              Output directory; overrides irc.out_dir from
                                   YAML.  [default: ./result_irc/]
   --hessian-calc-mode [analytical|finitedifference]
-                                  How the ML backend builds the Hessian
-                                  (Analytical or FiniteDifference); overrides
-                                  calc.hessian_calc_mode from YAML. Runtime and
-                                  memory depend on the backend and system;
-                                  compare both modes on a representative pilot.
+                                  How the backend computes the Hessian.
                                   [default: (FiniteDifference)]
   --config FILE                   Base YAML configuration file applied before
                                   explicit CLI options.
@@ -125,7 +121,7 @@ Options:
                                   (None)]
   --freeze-atoms TEXT             Comma-separated 1-based atom indices to freeze
                                   (e.g., '1,3,5').
-  --out-json / --no-out-json      Write machine-readable result.json to out_dir.
+  --out-json / --no-out-json      Write result.json to the output directory.
                                   [default: no-out-json]
   --detect-layer / --no-detect-layer
                                   Automatically detect ML/MM layers from input
@@ -135,11 +131,10 @@ Options:
                                   movable/frozen MM B-factor layers.  [default:
                                   detect-layer]
   --precision [tf32|fp32|fp64]    MLIP backend precision: tf32, fp32 (IEEE) or
-                                  fp64. Unset defaults per backend (uma: fp32;
-                                  orb, mace: fp64). tf32 uses TF32 matmul for
-                                  speed (uma, orb only); avoid it for Hessians.
-                                  aimnet2: fp32 only.  [default: (per backend:
-                                  uma fp32; orb, mace fp64)]
+                                  fp64. tf32 uses TF32 matmul for speed (uma,
+                                  orb only); avoid it for Hessians. aimnet2:
+                                  fp32 only.  [default: (per backend: uma fp32;
+                                  orb, mace fp64)]
   --compile / --no-compile        torch.compile the UMA or ORB model: slower
                                   first call, slightly faster afterwards; worth
                                   it only for long runs.  [default: (off)]
@@ -159,24 +154,23 @@ Options:
                                   mace, aimnet2 / aimnet2-nse for aimnet2).
                                   [default: (the selected backend's own model)]
   --calc-file FILE                Python file exposing get_calculator(...) -> an
-                                  ASE Calculator used as the ML-region backend
-                                  (overrides --backend). Couples GFN-xTB / DFTB+
-                                  / any ASE engine. See --calc-file-func-name.
+                                  ASE Calculator for the ML region (overrides
+                                  --backend). Works with GFN-xTB, DFTB+ or any
+                                  ASE engine. See --calc-file-func-name.
   --calc-factory, --calc-file-func-name TEXT
                                   Name of the callable in --calc-file that
                                   returns an ASE Calculator (or a module-level
-                                  Calculator instance). CLI overrides config
-                                  YAML; otherwise defaults to get_calculator.
-                                  [default: (get_calculator)]
+                                  Calculator instance).  [default:
+                                  (get_calculator)]
   --deterministic / --no-deterministic
                                   Make repeated runs on the same software
                                   versions and hardware give identical results
                                   (PyTorch deterministic algorithms; AM1-BCC
                                   ligand charges are not covered, so reuse one
-                                  parm7). Slower; raises for detected
-                                  unsupported ops; custom calculators (--calc-
-                                  file) and AIMNet2 are not supported: the run
-                                  stops.  [default: no-deterministic]
+                                  parm7). Slower; raises an error on unsupported
+                                  ops; custom calculators (--calc-file) and
+                                  AIMNet2 are not supported: the run stops.
+                                  [default: no-deterministic]
   --allow-charge-mult-mismatch    Skip the ML-region charge/multiplicity
                                   electron-parity check (logs that it was
                                   skipped). An open-shell ML region needs a
@@ -195,10 +189,10 @@ Options:
                                   PySCF execution engine used by --backend dft.
                                   [default: (gpu)]
   --save-scf-checkpoint / --no-save-scf-checkpoint
-                                  Persist a structure-bound PySCF checkpoint.
+                                  Save a structure-bound PySCF checkpoint.
                                   [default: (disabled)]
   --scf-checkpoint FILE           Load/save the optional structure-bound PySCF
-                                  checkpoint at PATH.
+                                  checkpoint.
   --dft-low-memory, --lowmem / --no-dft-low-memory, --no-lowmem
                                   Use GPU4PySCF rks_lowmem for closed-shell GPU
                                   DFT; open-shell GPU and CPU use standard

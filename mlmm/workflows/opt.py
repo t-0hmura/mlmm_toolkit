@@ -1360,7 +1360,7 @@ def _run_microiter_opt(
     default=False,
     show_default=True,
     help=(
-        "Opt in to rejecting uphill RFO trials in hess mode (tolerance: "
+        "Reject uphill RFO steps in hess mode (tolerance: "
         "1e-4 Hartree) and shrink the trust radius; after repeated rejections "
         "at the smallest radius, keep the lower-energy geometry and stop after "
         "one convergence check. Ignored in grad/lbfgs mode."
@@ -1455,7 +1455,7 @@ def _run_microiter_opt(
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @add_ml_layer_detection_options()
 @add_ml_charge_spin_options()

@@ -719,7 +719,7 @@ def _finalize_surface_and_plot(
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json to out_dir.",
+    help="Write result.json to the output directory.",
 )
 @add_scan_common_options(
     out_dir_default=OUT_DIR_SCAN3D,

@@ -200,10 +200,7 @@ def _parse_label_x(tokens: Sequence[str]) -> List[str]:
 
 @click.command(
     name="energy-diagram",
-    help=(
-        "Plot an energy diagram from numeric inputs only. "
-        "Supply values via repeated -i or a single list-like string."
-    ),
+    help="Plot an energy diagram from numeric inputs only.",
     context_settings={
         "help_option_names": ["-h", "--help"],
         "ignore_unknown_options": True,
@@ -218,8 +215,8 @@ def _parse_label_x(tokens: Sequence[str]) -> List[str]:
     multiple=True,
     required=True,
     help=(
-        "Numeric sequence. Give one value per -i "
-        "(-i 0 -i 12.5 -i 4.3), or a single list-like string "
+        "Energy values. Repeat -i per value "
+        "(-i 0 -i 12.5 -i 4.3) or pass one list-like string "
         "(-i \"[0, 12.5, 4.3]\")."
     ),
 )
@@ -257,7 +254,7 @@ def _parse_label_x(tokens: Sequence[str]) -> List[str]:
     "out_json",
     default=False,
     show_default=True,
-    help="Write machine-readable result.json next to the output image.",
+    help="Write result.json next to the output image.",
 )
 @click.pass_context
 def cli(

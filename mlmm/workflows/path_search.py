@@ -1743,9 +1743,8 @@ def _build_multistep_path(
     default=None,
     show_default="peak for gsm, minima for dmf",
     help=(
-        "Refinement seed around the highest-energy image: "
-        "'peak' uses HEI±1, 'minima' uses nearest local minima. "
-        "Defaults to peak for gsm and minima for dmf."
+        "Refinement seed selection around the highest-energy image (HEI): "
+        "'peak' uses HEI±1, 'minima' uses the nearest local minima in each direction."
     ),
 )
 @click.option(
@@ -1812,10 +1811,7 @@ def _build_multistep_path(
     type=click.IntRange(min=1),
     default=None,
     show_default="3000",
-    help=(
-        "Maximum IPOPT iterations for the DMF MEP stage. This is a solver "
-        "iteration count, not a string-optimizer cycle count."
-    ),
+    help="Maximum IPOPT iterations for the DMF MEP stage.",
 )
 @click.option(
     "--climb/--no-climb",
@@ -1852,8 +1848,7 @@ def _build_multistep_path(
     default=None,
     show_default="gau",
     help=(
-        "Convergence preset for single-structure optimizations only. "
-        "The MEP itself keeps --thresh-gsm / --dmf-tol."
+        "Convergence preset for single-structure optimizations only."
     ),
 )
 @click.option(
@@ -1874,8 +1869,7 @@ def _build_multistep_path(
     show_default="tight",
     help=(
         "IPOPT dual-infeasibility tolerance for the DMF path optimizer: "
-        "tight (0.04) | middle (0.10) | loose (0.20) or a positive float. "
-        "This is not a Gaussian preset."
+        "tight (0.04) | middle (0.10) | loose (0.20) or a positive float."
     ),
 )
 @click.option(
@@ -1907,7 +1901,7 @@ def _build_multistep_path(
     # string growth to avoid GSM step inflation.
     default=True,
     show_default=True,
-    help="If True, run initial single-structure optimizations of inputs."
+    help="Run initial single-structure optimizations of the inputs."
 )
 # Input alignment switch (default True)
 @click.option(
@@ -1978,7 +1972,7 @@ def _build_multistep_path(
     type=click.Choice(["hessian_ff", "openmm"], case_sensitive=False),
     default=None,
     show_default="hessian_ff",
-    help="MM backend: 'hessian_ff' (the MM engine bundled with mlmm-toolkit; default) or 'openmm'. MM Hessians use finite differences by default; set calc.mm_fd: false for the hessian_ff analytical path.",
+    help="MM backend: 'hessian_ff' (bundled with mlmm-toolkit) or 'openmm'. MM Hessians use finite differences by default; set calc.mm_fd: false for analytical Hessians with hessian_ff.",
 )
 @click.option(
     "--cmap/--no-cmap",
