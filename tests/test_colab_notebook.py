@@ -978,7 +978,8 @@ def test_colab_setup_operates_orb_and_uma_branches(
     joined = [" ".join(argv) for argv in calls]
     assert namespace["BACKEND"] == backend
     assert not any("mace-torch" in command for command in joined)
-    assert not any("uninstall -y -q fairchem-core" in command for command in joined)
+    removes_fairchem = any("uninstall -y -q fairchem-core" in command for command in joined)
+    assert removes_fairchem is (backend == "orb")
     if backend == "orb":
         assert any("orb-models" in command for command in joined)
         assert logins == []
@@ -7161,22 +7162,24 @@ def _run_backend_install_branch(monkeypatch, backend, *, calls, failure_at=None)
     exec(compile(ast.Module(body=branch.body, type_ignores=[]), str(NOTEBOOK), "exec"), namespace)
 
 
-def test_orb_installs_with_fairchem_core(monkeypatch, capsys) -> None:
-    # orb-models 0.7 pins nvalchemi-toolkit-ops<0.4 (fairchem-core 2.24 needs >=0.4.1); naming both
-    # in one install lets pip choose a consistent pair instead of a --no-deps install over the base.
+def test_orb_install_removes_fairchem_core(monkeypatch, capsys) -> None:
+    # orb-models pins nvalchemi-toolkit-ops<0.4 while fairchem-core needs >=0.4.1, so ORB runs
+    # in its own environment without fairchem-core, as MACE does.
     calls = []
     _run_backend_install_branch(monkeypatch, "orb", calls=calls)
-    assert calls == [("pip", ("orb-models==0.7.0", "fairchem-core>=2.22,<3"), {})]
+    assert [call[0] for call in calls] == ["run", "pip"]
+    assert calls[0][1][-5:] == ["pip", "uninstall", "-y", "-q", "fairchem-core"]
+    assert calls[1] == ("pip", ("orb-models",), {})
     assert "ORB installed" in capsys.readouterr().out
 
 
 def test_orb_installer_failure_retains_original_error(monkeypatch, capsys) -> None:
     calls = []
     with pytest.raises(subprocess.CalledProcessError) as raised:
-        _run_backend_install_branch(monkeypatch, "orb", calls=calls, failure_at="orb-models==0.7.0")
+        _run_backend_install_branch(monkeypatch, "orb", calls=calls, failure_at="orb-models")
     assert raised.value.output == "build diagnostic"
     assert raised.value.returncode == 1
-    assert [call[0] for call in calls] == ["pip"]
+    assert [call[0] for call in calls] == ["run", "pip"]
     assert "ORB installed" not in capsys.readouterr().out
 
 
