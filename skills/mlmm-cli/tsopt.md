@@ -145,7 +145,7 @@ cycle threshold.
   [Judge success](#judge-success) and reports no n_imag. Do not count the
   candidate as one that does not converge or change the method for it; rerun
   with more walltime, or resume `all`
-  ([all.md](all.md#resume-a-failed-segment)).
+  ([all.md](all.md#resume)).
 - `RS-P-RFO exhausted its micro cycles outside the trust radius.`,
   `RS-P-RFO alpha update is not finite and positive.`, and
   `RS-P-RFO combined step exceeds the trust radius.` are numerical stops of

@@ -76,7 +76,7 @@ hf auth login                               # interactive
 | `[pdbfixer]` | PDBFixer extra (alternative to the conda install above) |
 | `[openmm]` | OpenMM low-level backend, including virtual-site water models |
 
-The MACE backend (`-b mace`) does not install into the same environment as UMA; create a dedicated environment as described in [docs/installation.md](docs/installation.md).
+The ORB (`-b orb`) and MACE (`-b mace`) backends do not install into the same environment as UMA; create a dedicated environment as described in [docs/installation.md](docs/installation.md).
 
 CUDA module loads, alternative-backend recipes, DMF/`cyipopt` setup, Plotly Chromium, and HPC job-script templates: [docs/installation.md](docs/installation.md) and [docs/device-hpc.md](docs/device-hpc.md).
 

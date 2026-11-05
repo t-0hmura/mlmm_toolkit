@@ -71,7 +71,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 
 Use the existing compiler. If a compiler or CUDA build component is missing or unsupported, run `conda install -c conda-forge cuda-nvcc`, reactivate the environment, and rerun the command. On HPC, ask the administrator for any missing Chrome libraries.
 
-If a compiler is missing, the command stops and prints `Missing system prerequisite:` followed by these commands. If a Chrome library is missing, `energy-diagram` and `trj2fig` stop the same way, while `all`, `path-search` and `scan2d` print a warning and skip only their PNG files.
+If a compiler is missing, the command stops and prints `Missing system prerequisite:` followed by this command. If a Chrome library is missing, `energy-diagram` and `trj2fig` stop the same way, while `all`, `path-search` and `scan2d` print a warning and skip only their PNG files.
 
 (step-by-step-installation)=
 ## Step-by-step installation

@@ -435,7 +435,7 @@ The `all` command additionally includes:
 |-------|------|-------------|
 | `config` | object | Effective settings. `mep_mode` identifies GSM/DMF (`---` in TS-only mode, where no MEP is searched); `ts_opt_mode` and `endpoint_opt_mode` identify the configured post-processing presets. Generic `opt_mode*` keys record the CLI values in effect. `path_opt_mode` is the single-structure optimizer used for endpoint preoptimization (see `preopt`), not the MEP path algorithm. |
 | `mlip_precision_post` | string \| null | Effective `tf32` / `fp32` / `fp64` of TS optimization, IRC, the endpoint optimizations and freq (`--precision-post`); the same as `mlip_precision` when it is not given |
-| `n_segments_reactive` | int | Number of non-bridge (reactive) segments |
+| `n_segments_reactive` | int | Number of reactive segments (not `kink` or `bridge`) |
 | `rate_limiting_step` | object | Highest local barrier among the reactive segments, as `{segment, barrier_kcal, method}` plus `mep_barrier_kcal` (the barrier on the MEP; not in TS-only mode), taken at the highest-level method available for every segment (`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`; with `--backend dft`, `DFT/MM_Gibbs` and `DFT/MM` take the place of `MLIP_Gibbs` and `MLIP`). It is not a microkinetic rate-limiting-step assignment. |
 | `overall_reaction_energy_kcal` | float | Overall reaction energy: the energy of the last state relative to the first in the highest-level energy diagram that covers every reactive segment. The MEP-level diagram includes intervals that built no segment |
 | `overall_reaction_energy_method` | string | Method of the overall reaction energy, from the same list as `rate_limiting_step.method` and no higher than it |

@@ -183,7 +183,7 @@
 | UMA のダウンロードに失敗する（`huggingface_hub.errors.GatedRepoError`、`401`、`403`） | Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない | マシンごとに一度 `hf auth login` を実行し、Hugging Face の UMA モデルのページでライセンスに同意してください。HPC では、計算ノードからモデルのキャッシュ（`$FAIRCHEM_CACHE_DIR`、デフォルトは `~/.cache/fairchem`）に書き込めるかを確かめます。インターネットに接続できない計算ノードでは、同じ環境と、共有ファイルシステム上の同じ `$FAIRCHEM_CACHE_DIR` を使い、ログインノードで各モデルを 1 回取得してから（例: `python -c "from fairchem.core import pretrained_mlip; pretrained_mlip.get_predict_unit('uma-s-1p2p1', device='cpu')"`）、ジョブスクリプトで `export HF_HUB_OFFLINE=1` を設定します |
 | `torch.cuda.is_available()` が `False`、またはインポート時に CUDA の実行時エラー | PyTorch のビルドが計算ノードの GPU・ドライバに合っていない | `nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている PyTorch のビルド、ドライバを確認してください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。13.0 より小さいときは、`cuda130` の代わりに `"pytorch=2.13.0=cuda129*"` で環境を作ってください |
 | `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` が無い、または `pydmf` の GPU 用の部分が無い | {ref}`インストールの手順 2 <ja-step-by-step-installation>` のとおり、cyipopt を conda-forge から入れて環境を作ってください。`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版 DMF でそれでもインポートに失敗するときは、エラーの文が勧めるとおり `pip install 'pydmf[torch]'` を実行してください |
-| `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).`（PyTorch のエラー `Failed to find C compiler`、`No working C++ compiler found`） | `PATH` 上にコンパイラが無い。GPU での UMA と、`--compile` を付けた UMA と ORB は実行時に高速化のためコンパイルをします | {ref}`システムの前提パッケージ <ja-system-prerequisites>` のとおり `gcc`（CPU で `--compile` を付けるときは `g++`）を入れてください。クラスターではジョブスクリプトで `module load gcc` します |
+| `Missing system prerequisite: C compiler (gcc).`、`C++ compiler (g++).` または `CUDA build tools.`（PyTorch のエラー `Failed to find C compiler`、`No working C++ compiler found`） | `PATH` 上にコンパイラが無い、または CUDA のヘッダーや `ptxas` が無い。GPU での UMA と、`--compile` を付けた UMA と ORB は実行時に高速化のためコンパイルをします | `conda install -c conda-forge cuda-nvcc` を実行し、環境を再度 activate してから再実行してください |
 | 図の出力に失敗する（`Missing system prerequisite: Chrome for PNG export.`） | ヘッドレス Chrome が入っていない、または Chrome が使う OS のライブラリが無い | `plotly_get_chrome -y` を一度実行し（Chromium のバイナリをダウンロードするので、インターネット接続が必要です）、続けて {ref}`システムの前提パッケージ <ja-system-prerequisites>` のライブラリを入れてください |
 
 ### DMF が IPOPT 内で極端に遅い
@@ -272,7 +272,7 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
 - **対処**：
   - ORB：別の環境で `pip uninstall fairchem-core && pip install orb-models`。AIMNet2：`pip install "mlmm-toolkit[aimnet]"`。
   - MACE：専用の環境で `pip uninstall fairchem-core && pip install mace-torch` を実行してください。`mace-torch` は `e3nn==0.4.4` に固定し、UMA（`fairchem-core`）は `e3nn>=0.5` を必要とします。
-  - 追加パッケージを入れても ORB を import できないときは、`python -m pip check` を実行し、依存関係の解決か import のエラーが名指ししたパッケージを直してください。関係のない PyG のパッケージは入れないでください。
+  - 追加パッケージを入れても ORB を import できないときは、import のエラーが名指ししたパッケージを直してください。関係のない PyG のパッケージは入れないでください。
 
 ---
 

@@ -78,13 +78,12 @@ Give ORB its own environment, remove `fairchem-core`, and install `orb-models`.
 ORB needs Python 3.12: `orb-models` pins `dm-tree==0.1.8`, which has no Python 3.13 wheel.
 
 ```bash
-pip uninstall -y fairchem-core && pip install orb-models   # in the ORB env; pulls orb-models
+pip uninstall -y fairchem-core && pip install orb-models   # in the ORB env
 python -c "import orb_models; print('orb backend OK:', orb_models.__version__)"
 ```
 
-If installation fails, read the resolver error and `python -m pip check`
-instead of adding unrelated PyG packages. The weights download on first use
-without authentication.
+If installation fails, read the resolver error instead of adding unrelated
+PyG packages.
 
 ```bash
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt --thermo -b orb

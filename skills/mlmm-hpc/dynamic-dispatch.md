@@ -12,7 +12,7 @@ uses PBS Pro resource syntax; on Torque, replace the `-l` line with the
 site's verified syntax.
 The recipe below is **placeholder-driven** — fill in
 `<N_NODES>`, `<NCPU>`, `<NGPU>`, `<MEM>`, `<HH:MM:SS>`, `<YOUR_QUEUE>`,
-`<YOUR_ENV>`, `<TASK_LIST_FILE>` (and `<COMPILER_MODULE>` only if needed) from [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment).
+`<YOUR_ENV>`, `<TASK_LIST_FILE>` from [`mlmm-install/backends.md`](../mlmm-install/backends.md#probe-the-compute-environment).
 
 ## Files involved
 

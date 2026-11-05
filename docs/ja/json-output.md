@@ -409,7 +409,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 |-----------|------|------|
 | `config` | object | 実効設定。`mep_mode` は GSM/DMF（MEP を探さない TS-only モードでは `---`）、`ts_opt_mode` / `endpoint_opt_mode` は設定した後処理のプリセットを示します。一般の `opt_mode*` は実際に使った CLI の値を記録します。`path_opt_mode` は端点の事前最適化に使う単一構造オプティマイザであり（`preopt` を参照）、MEP の経路アルゴリズムではありません。 |
 | `mlip_precision_post` | string \| null | TS 最適化・IRC・端点の最適化・freq の実効の `tf32` / `fp32` / `fp64`（`--precision-post`）。指定しなければ `mlip_precision` と同じ |
-| `n_segments_reactive` | int | bridge 以外の反応セグメント数 |
+| `n_segments_reactive` | int | kink・bridge 以外の反応セグメント数 |
 | `rate_limiting_step` | object | 反応セグメントのうち局所障壁が最大のもの。`{segment, barrier_kcal, method}` と、`mep_barrier_kcal`（MEP 上の障壁。TS-only モードでは無し）を持ちます。障壁は、すべてのセグメントで得られる最も高い水準の手法（`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`。`--backend dft` では `MLIP_Gibbs` と `MLIP` の代わりに `DFT/MM_Gibbs` と `DFT/MM`）で取ります。microkinetics に基づく律速段階の判定ではありません。 |
 | `overall_reaction_energy_kcal` | float | 全体反応エネルギー。すべての反応セグメントを含む最も高い水準の手法のエネルギー図で、最初の状態を基準にした最後の状態のエネルギーです。MEP のエネルギー図は、セグメントを作らなかった区間も含みます |
 | `overall_reaction_energy_method` | string | 全体の反応エネルギーの手法。`rate_limiting_step.method` と同じ一覧から、それより高くない水準を使います |
