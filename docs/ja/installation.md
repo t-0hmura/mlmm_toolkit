@@ -158,7 +158,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
     pip install "mlmm-toolkit[dft]"
     ```
 
-    DFT/MM を使う場面と、MLIP/MM の TS を DFT/MM で確かめる方法は [MLIP の TS を DFT で確かめる](dft-backend.md) を参照してください。ほかに、`[openmm]`（MM に OpenMM）と `[pdbfixer]`（pip で PDBFixer）の追加パッケージがあります。
+    DFT/MM を使う場面と、MLIP/MM の TS を DFT/MM で確かめる方法は [MLIP での TS 構造を DFT で検証する](dft-backend.md) を参照してください。ほかに、`[openmm]`（MM に OpenMM）と `[pdbfixer]`（pip で PDBFixer）の追加パッケージがあります。
 
 8. **インストールの確認**
 
@@ -199,7 +199,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 - [クイックスタート: `mlmm all`](quickstart-all.md) — R と P から MEP を作る
 - [クイックスタート: `mlmm all --scan-lists`](quickstart-scan.md) — 1 つの構造から経路を作る
 - [クイックスタート: TS-only モード](quickstart-tsopt.md) — TS 候補を最適化して確かめる
-- [MLIP の TS を DFT で確かめる](dft-backend.md) — TS を DFT/MM で精密化して確かめる
+- [MLIP での TS 構造を DFT で検証する](dft-backend.md) — TS を DFT/MM で精密化して確かめる
 - [共通オプションと残基・原子の指定](cli-conventions.md) — 共通のオプションと、残基・原子の指定の書き方
 - [デバイス設定 & HPC セットアップ](device-hpc.md) — クラスターでの GPU の設定とジョブスクリプト
 - [トラブルシューティング](troubleshooting.md) — よくあるエラーと試すこと

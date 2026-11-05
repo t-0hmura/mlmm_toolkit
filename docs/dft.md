@@ -139,7 +139,7 @@ See the [generated CLI reference](reference/commands/dft.md) for every option.
 
 ## See also
 
-* [Refine an MLIP TS with DFT](dft-backend.md) — `-b dft` and `--dft` in a workflow, DFT settings, and GPU memory
+* [Validate the MLIP TS structure with DFT](dft-backend.md) — `-b dft` and `--dft` in a workflow, DFT settings, and GPU memory
 * [sp](sp.md) — single-point ML/MM energy and forces with any backend, including `-b dft`
 * [all](all.md) — the full workflow; `--dft` adds DFT single points on R, TS, and P
 * [MLIP Backends](backends.md) — choosing a backend

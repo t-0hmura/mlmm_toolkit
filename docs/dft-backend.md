@@ -1,4 +1,4 @@
-# Refine an MLIP TS with DFT
+# Validate the MLIP TS structure with DFT
 
 Once MLIP/MM has found a reasonable pathway, mlmm-toolkit can take its TS straight into a DFT/MM TS optimization. It runs the TS optimization → IRC → endpoint optimization → frequency workflow with GPU-accelerated DFT through GPU4PySCF. DFT computes only the ML region; the protein around it stays in MM.
 

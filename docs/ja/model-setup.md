@@ -72,7 +72,7 @@ ML 領域の外の原子は、2 つの MM の層に分かれます。各原子�
 - **`--exclude-backbone`** と **`--no-include-h2o`**：主鎖の原子と水を ML 領域から外します。外した原子は MM として系に残ります。
 - **`-r 0 --selected-resn`**：距離で残基を足さず、`-c` の残基と、指定した残基で ML 領域を作ります。同梱例の 44・63・186 番は、SAM のメチル炭素（CS1）に最も近い 3 残基です。自分の系では、反応に関わる残基を選んでください。
 
-`all` でも同じオプションを使えます。例は [MLIP の TS を DFT で確かめる](dft-backend.md#基本的な実行例) の例 1 に、DFT/MM で計算するときの大きさは [ML 領域は 300 原子程度までに](dft-backend.md#ml-領域は-300-原子程度までに) にあります。ML 領域を小さくすると電荷が変わることが多いので、毎回確かめてください。
+`all` でも同じオプションを使えます。例は [MLIP での TS 構造を DFT で検証する](dft-backend.md#基本的な実行例) の例 1 に、DFT/MM で計算するときの大きさは [ML 領域は 300 原子程度までに](dft-backend.md#ml-領域は-300-原子程度までに) にあります。ML 領域を小さくすると電荷が変わることが多いので、毎回確かめてください。
 
 ### 可動 MM の殻を薄くする
 
@@ -181,7 +181,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 - [`scan`](scan.md) — 拘束を付けた段階的なスキャン
 - [`freq`](freq.md) — 固定した原子があるときの PHVA と剛体モード
 - [反応機構を調べるコツ](mechanism-tips.md) — モデルを広げるとき
-- [MLIP の TS を DFT で確かめる](dft-backend.md) — DFT で扱える大きさの ML 領域
+- [MLIP での TS 構造を DFT で検証する](dft-backend.md) — DFT で扱える大きさの ML 領域
 - [ML/MM 計算機](mlmm-calc.md) — リンク原子、マイクロイテレーション、MM の Hessian
 - {ref}`ML/MM の共通オプション <ja-mlmm-options>` — `--parm7`、`--model-pdb`、`--detect-layer`、`--movable-cutoff`
 - [デバイス設定 & HPC セットアップ](device-hpc.md) — GPU のメモリとモデルの大きさ

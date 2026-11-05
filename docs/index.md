@@ -202,9 +202,9 @@ ja/architecture
 | Goal | Page |
 |------|------|
 | **Choose the ML region and layers, or make a run lighter** | [Building the ML region and layers](model-setup.md) |
-| **Study a mechanism, or fix a failing TS search** | [Tips for studying reaction mechanisms](mechanism-tips.md) |
-| **Optimize the TS structure with DFT** | [Refine an MLIP TS with DFT](dft-backend.md) |
-| **A run failed** | [Troubleshooting](troubleshooting.md) |
+| **Analyze reaction mechanisms and search for transition states** | [Tips for studying reaction mechanisms](mechanism-tips.md) |
+| **Optimize the MLIP TS structure with DFT** | [Validate the MLIP TS structure with DFT](dft-backend.md) |
+| **Investigate why a calculation failed** | [Troubleshooting](troubleshooting.md) |
 
 ## Subcommands
 
@@ -213,24 +213,24 @@ ja/architecture
 | Subcommand | Description |
 |---------|------|
 | [`all`](all.md) | ML/MM model setup and MEP search; optional TS, IRC, thermochemistry, and DFT |
-| [`fix-altloc`](fix-altloc.md) | Resolve PDB alternate locations |
-| [`add-elem-info`](add-elem-info.md) | Repair PDB element columns (77–78) |
 | [`mm-parm`](mm-parm.md) | Build Amber parm7/rst7 topology and coordinates |
 | [`extract`](extract.md) | Define the ML region from a protein–ligand complex |
 | [`define-layer`](define-layer.md) | Assign ML / Movable-MM / Frozen-MM B-factor layers |
-| [`opt`](opt.md) | Single-structure geometry optimization (L-BFGS or RFO; optional `--flatten` removes leftover imaginary modes) |
-| [`scan`](scan.md) | Restrained scan of distances, angles, or dihedrals, with concerted and multistage scans |
-| [`scan2d`](scan2d.md) | Two-dimensional energy-landscape exploration and PES mapping |
-| [`scan3d`](scan3d.md) | Three-dimensional energy-landscape exploration and PES mapping |
-| [`path-opt`](path-opt.md) | Single-step MEP optimization via GSM or DMF (from 2 structures) |
-| [`path-search`](path-search.md) | Recursive multi-step MEP search with automatic refinement (2+ structures) |
-| [`tsopt`](tsopt.md) | Transition state optimization (Dimer or RS-P-RFO; optional `--flatten` removes extra imaginary modes) |
+| [`opt`](opt.md) | Single-structure geometry optimization (L-BFGS or RFO available) |
+| [`scan`](scan.md) | Scan the energy change with distances, angles, or dihedrals as variables (concerted and multistage scans supported) |
+| [`scan2d`](scan2d.md) | Two-dimensional energy-landscape exploration and 2D PES mapping |
+| [`scan3d`](scan3d.md) | Three-dimensional energy-landscape exploration and 3D PES mapping |
+| [`path-opt`](path-opt.md) | Single-step minimum energy path (MEP) optimization by the Growing String method (GSM) or the Direct Max Flux method. Builds the trajectory of the structural change along the reaction from the reactant and product structures. |
+| [`path-search`](path-search.md) | Recursive MEP search that automatically detects multistep reactions and builds a multistep minimum energy path. Accepts reactant, intermediate, and product structures. |
+| [`tsopt`](tsopt.md) | Transition state (TS) optimization of a single structure (Dimer or RS-P-RFO), giving a structure with one imaginary mode. |
 | [`irc`](irc.md) | Intrinsic Reaction Coordinate calculation |
-| [`freq`](freq.md) | Vibrational frequency analysis & thermochemistry |
+| [`freq`](freq.md) | Vibrational frequency analysis and thermochemical analysis |
 | [`dft`](dft.md) | Single-point DFT calculations (GPU4PySCF / PySCF) |
+| [`fix-altloc`](fix-altloc.md) | Resolve PDB alternate locations |
+| [`add-elem-info`](add-elem-info.md) | Repair PDB element columns (77–78) |
 | [`sp`](sp.md) | ML/MM ONIOM energy and forces; optional Hessian |
-| [`bond-summary`](bond-summary.md) | Detect and report covalent bond changes between consecutive structures |
-| [`trj2fig`](trj2fig.md) | Plot energy profiles from XYZ trajectories |
+| [`bond-summary`](bond-summary.md) | Detect and report covalent bond changes between structures of multiple states |
+| [`trj2fig`](trj2fig.md) | Plot energy profiles from XYZ trajectories written by mlmm-toolkit |
 | [`energy-diagram`](energy-diagram.md) | Draw an energy diagram from numeric values |
 | [`oniom-export`](oniom-export.md) | Generate Gaussian ONIOM or ORCA QM/MM input |
 | [`oniom-import`](oniom-import.md) | Read an ONIOM input into XYZ / layered PDB |
@@ -245,26 +245,21 @@ ja/architecture
 | **CLI command reference** | [Command Reference](reference/commands/index.md) |
 | **YAML configuration options** | [YAML Reference](yaml-reference.md) · [Curated YAML subset](reference/yaml.md) |
 | **MLIP backend settings** | [MLIP Backends](backends.md) |
-| **Files each command writes** | [Output Directory Layout](output-layout.md) |
-| **Keys of `result.json` and `summary.json`** | [JSON Output Reference](json-output.md) |
+| **Details of the files and directories each command writes** | [Output Directory Layout](output-layout.md) |
+| **Details of the keys in the JSON result files** | [JSON Output Reference](json-output.md) |
 | **GPU and CPU assignment, HPC** | [Device Configuration & HPC Setup](device-hpc.md) |
 | **Use the ML/MM calculator from Python** | [ML/MM Calculator](mlmm-calc.md) |
-| **Using mlmm-toolkit from an AI agent** | [Agent skills](#agent-skills) |
+| **Let an AI agent use mlmm-toolkit** | [Agent skills](#agent-skills) |
 | **Code structure (for developers)** | [Architecture](architecture.md) |
 | **Terminology** | [Glossary](glossary.md) |
 
 ## System requirements
 
-### Hardware
-
-- **OS:** Linux (on Windows, use WSL2).
+- **OS:** Linux (on Windows, WSL2 is recommended; on Mac, a virtual environment is recommended).
 - **GPU:** an NVIDIA driver compatible with the backend and PyTorch wheel. CPU execution is also supported but slower.
 - **VRAM / RAM:** depends on the model, the system size, and the Hessian mode; measure the peak on a representative run.
-
-### Software
-
 - Python 3.12 (recommended) or 3.13.
-- CPU or CUDA-enabled PyTorch. UMA on a GPU also needs gcc and CUDA at run time.
+- CPU or CUDA-enabled PyTorch. UMA on a GPU also needs gcc and CUDA at run time (usually included in standard HPC environments).
 - AmberTools, which `mm-parm` uses to build the Amber topology.
 
 See [Installation](installation.md) for setup.
@@ -275,7 +270,9 @@ The three layers (ML, Movable-MM, Frozen-MM) and how ONIOM combines them are exp
 
 ## Agent skills
 
-`skills/` contains guides for CLI commands, structure I/O, backends, workflows, output analysis, and HPC use.
+`mlmm-toolkit` ships guides for AI agents in `skills/` that describe how to use the tool and the steps of reaction-mechanism analysis.
+
+They cover CLI commands, structure I/O, backend installation, workflows, output analysis, and HPC use.
 To install them, tell your AI agent:
 
 > Import `https://github.com/t-0hmura/mlmm_toolkit/tree/main/skills` as skills, and install mlmm-toolkit by following `mlmm-install`.
@@ -288,7 +285,7 @@ For details, see [Skills for AI Agents](agent-skills.md).
 
 ## Citation
 
-If you use mlmm-toolkit in your research, cite the ChemRxiv paper:
+If you use mlmm-toolkit in your research, cite the following paper:
 
 ```bibtex
 @article{ohmura2025mlmm,

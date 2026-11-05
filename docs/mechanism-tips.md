@@ -101,7 +101,7 @@ The other remedy, changing the precision (`--precision`), is in [`tsopt` → Wro
 - **Stage order**: the stages set the order of the structures passed to the MEP search (R → end of stage 1 → end of stage 2 …). Another order gives another path, so run each plausible order and compare the energy diagrams.
 - **Stepwise or concerted**: run it stepwise and check whether the intermediate bond state survives an unbiased optimization once the restraints are released (`--scan-endopt`). If it relaxes back, the concerted path fits better. If a concerted run splits into two segments with `--refine-path` and passes the same intermediate, the stepwise path fits better.
 - **ML region**: when the IRC endpoints are not the intended ones, or a residue, water, or cofactor that takes part lies outside the ML region, [enlarge the ML region](model-setup.md#make-the-model-larger). To let more of the environment relax, widen Movable-MM instead of the ML region.
-- **DFT**: to check a candidate TS with DFT/MM, see [Refine an MLIP TS with DFT](dft-backend.md).
+- **DFT**: to check a candidate TS with DFT/MM, see [Validate the MLIP TS structure with DFT](dft-backend.md).
 
 (mechanism-barrier)=
 ## Read the barrier
@@ -131,6 +131,6 @@ The other remedy, changing the precision (`--precision`), is in [`tsopt` → Wro
 - [Building the ML region and layers](model-setup.md) — checking and enlarging the ML region and the layers
 - [define-layer](define-layer.md) — assigning the ML and MM layers
 - [ML/MM Calculator](mlmm-calc.md) — microiteration and the Hessian range
-- [Refine an MLIP TS with DFT](dft-backend.md) — DFT/MM checks of a candidate TS
+- [Validate the MLIP TS structure with DFT](dft-backend.md) — DFT/MM checks of a candidate TS
 - [Troubleshooting](troubleshooting.md) — errors and convergence problems
 - [Common options and selectors](cli-conventions.md) — atom selectors for `-s`

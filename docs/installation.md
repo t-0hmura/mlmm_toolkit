@@ -160,7 +160,7 @@ If you prefer to build the environment piece by piece:
     pip install "mlmm-toolkit[dft]"
     ```
 
-    For when to use DFT/MM and how to check an MLIP/MM TS with it, see [Refine an MLIP TS with DFT](dft-backend.md). Two more extras are available: `[openmm]` (OpenMM as the MM backend) and `[pdbfixer]` (PDBFixer through pip instead of conda).
+    For when to use DFT/MM and how to check an MLIP/MM TS with it, see [Validate the MLIP TS structure with DFT](dft-backend.md). Two more extras are available: `[openmm]` (OpenMM as the MM backend) and `[pdbfixer]` (PDBFixer through pip instead of conda).
 
 8. **Verify installation**
 
@@ -202,7 +202,7 @@ If you prefer to build the environment piece by piece:
 - [Quickstart: `mlmm all`](quickstart-all.md) — build an MEP from R and P
 - [Quickstart: `mlmm all --scan-lists`](quickstart-scan.md) — build a path from one structure
 - [Quickstart: TS-only mode](quickstart-tsopt.md) — optimize and check a TS candidate
-- [Refine an MLIP TS with DFT](dft-backend.md) — refine and check the TS with DFT/MM
+- [Validate the MLIP TS structure with DFT](dft-backend.md) — refine and check the TS with DFT/MM
 - [Common options and selectors](cli-conventions.md) — shared options, and how to specify residues and atoms
 - [Device Configuration & HPC Setup](device-hpc.md) — GPU settings and job scripts for clusters
 - [Troubleshooting](troubleshooting.md) — common errors and what to try

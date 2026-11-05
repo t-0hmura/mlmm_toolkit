@@ -68,7 +68,7 @@ The options shared by every ML/MM calculation command are explained once in {ref
 | `-q, --charge` | integer | `None` | Charge of the ML region. Required unless `-l` or YAML `calc.model_charge` gives it |
 | `-m, --multiplicity` | integer | `1` | Spin multiplicity (2S+1) of the ML region |
 | `-l, --ligand-charge` | text | `None` | Per-residue formal charges (e.g. `'SAM:1,GPP:-3'`) or one total ligand charge, used to derive the ML-region charge when `-q` is omitted (PDB/mmCIF input or `--ref-pdb`) |
-| `-b, --backend` | text | `uma` | ML-region backend (`uma`, `orb`, `mace`, `aimnet2`, `dft`); for the `-b dft` settings see [Refine an MLIP TS with DFT](dft-backend.md) |
+| `-b, --backend` | text | `uma` | ML-region backend (`uma`, `orb`, `mace`, `aimnet2`, `dft`); for the `-b dft` settings see [Validate the MLIP TS structure with DFT](dft-backend.md) |
 | `--hess/--no-hess` | flag | `False` | Also compute the Hessian and write `hessian.npy` |
 | `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | Hessian method (finite difference / analytical); used with `--hess` |
 | `--hessian-cutoff` | float | `None` | Put only the movable MM atoms within this distance (Å) of the ML region into the Hessian; by default all movable MM atoms |
@@ -99,6 +99,6 @@ See the [generated CLI reference](reference/commands/sp.md) for every option.
 * [tsopt](tsopt.md) — optimize a transition-state (TS) candidate
 * [freq](freq.md) — vibrational analysis and thermochemistry
 * [dft](dft.md) — DFT single point of the ML region with atomic charges
-* [Refine an MLIP TS with DFT](dft-backend.md) — `-b dft` settings (`--func-basis`, `--dft-engine`) and GPU memory
+* [Validate the MLIP TS structure with DFT](dft-backend.md) — `-b dft` settings (`--func-basis`, `--dft-engine`) and GPU memory
 * [MLIP Backends](backends.md) — choosing a backend, precision, and workers
 * [Troubleshooting](troubleshooting.md) — what to do when a run fails

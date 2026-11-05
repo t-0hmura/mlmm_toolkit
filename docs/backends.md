@@ -296,5 +296,5 @@ ML-region energy, forces, and Hessian in the correct units.
 - [ML/MM Calculator](mlmm-calc.md) — ONIOM coupling, MM Hessian, and the Python API (`MLMMCore`, `MLMMASECalculator`, `mlmm`).
 - [Architecture](architecture.md) — directory map and dependency direction.
 - [Device Configuration & HPC Setup](device-hpc.md) — GPU/CPU placement and job templates.
-- [Refine an MLIP TS with DFT](dft-backend.md) — DFT settings, memory, and checkpoints.
+- [Validate the MLIP TS structure with DFT](dft-backend.md) — DFT settings, memory, and checkpoints.
 - [Troubleshooting](troubleshooting.md) — when a run fails.

@@ -12,7 +12,7 @@ orphan: true
 <img src="../overview.jpg" alt="mlmm-toolkit ワークフロー概要" class="p2r-hero-figure">
 
 {.p2r-tagline}
-**mlmm-toolkit** は、酵素複合体を対象として、機械学習原子間ポテンシャル（MLIP）と分子力学（MM）を ONIOM で結合した ML/MM 法を用いて PDB/mmCIF の構造から反応機構を解析する Python 製 CLI ツールキットです。
+**mlmm-toolkit** は、酵素複合体を対象として、機械学習原子間ポテンシャル（MLIP）と分子力学（MM）を ONIOM で結合した ML/MM 法を用いて PDB/mmCIF の構造から反応機構を解析するための Python 製 CLI ツールキットです。
 
 {.p2r-lead}
 初めての方は [はじめに](getting-started.md) からお読みください。
@@ -52,9 +52,9 @@ orphan: true
 | 目的 | ページ |
 |------|------|
 | **ML 領域と層を決める・計算を軽くする** | [ML 領域と層の組み方](model-setup.md) |
-| **反応機構を調べる・TS が得られない** | [反応機構を調べるコツ](mechanism-tips.md) |
-| **求めた TS 構造を DFT で構造最適化する** | [MLIP の TS を DFT で確かめる](dft-backend.md) |
-| **計算が失敗した** | [トラブルシューティング](troubleshooting.md) |
+| **反応機構解析・遷移状態探索を行う** | [反応機構を調べるコツ](mechanism-tips.md) |
+| **MLIP で求めた TS 構造を DFT で構造最適化する** | [MLIP での TS 構造を DFT で検証する](dft-backend.md) |
+| **計算の失敗原因を調査する** | [トラブルシューティング](troubleshooting.md) |
 
 ## サブコマンド
 
@@ -63,24 +63,24 @@ orphan: true
 | サブコマンド | 説明 |
 |---------|------|
 | [`all`](all.md) | ML/MM モデルの構築と MEP 探索。TS・IRC・熱化学・DFT は任意 |
-| [`fix-altloc`](fix-altloc.md) | PDB の代替位置指示子を解決 |
-| [`add-elem-info`](add-elem-info.md) | PDB の元素列（77–78）を修復 |
 | [`mm-parm`](mm-parm.md) | Amber のトポロジー・座標（parm7/rst7）を構築 |
 | [`extract`](extract.md) | タンパク質–リガンド複合体から ML 領域を定義 |
 | [`define-layer`](define-layer.md) | ML・可動 MM・固定 MM の層を B-factor で指定 |
-| [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS または RFO。`--flatten` を付けると残った虚振動を除く） |
-| [`scan`](scan.md) | 距離・角度・二面角の拘束付きスキャン（協奏スキャン・多段階スキャンに対応） |
-| [`scan2d`](scan2d.md) | 2 次元のエネルギー地形の探索・PES マッピング |
-| [`scan3d`](scan3d.md) | 3 次元のエネルギー地形の探索・PES マッピング |
-| [`path-opt`](path-opt.md) | GSM または DMF による 1 段階の MEP 最適化（2 構造から） |
-| [`path-search`](path-search.md) | 自動精密化を伴う多段階の再帰的 MEP 探索（2 構造以上） |
-| [`tsopt`](tsopt.md) | 遷移状態最適化（Dimer または RS-P-RFO。`--flatten` を付けると余分な虚振動を除く） |
+| [`opt`](opt.md) | 単一構造の構造最適化（L-BFGS または RFO が利用可能） |
+| [`scan`](scan.md) | 距離・角度・二面角を変数としてエネルギー変化をスキャン（協奏スキャン・多段階スキャンに対応） |
+| [`scan2d`](scan2d.md) | 2 次元のエネルギー地形の探索・2D PES のマッピング |
+| [`scan3d`](scan3d.md) | 3 次元のエネルギー地形の探索・3D PES のマッピング |
+| [`path-opt`](path-opt.md) | Growing String 法（GSM）または Direct Max Flux 法による 1 段階の最小エネルギー経路（MEP）最適化。反応物と生成物の 2 構造から反応に伴う構造変化のトラジェクトリを構築する。 |
+| [`path-search`](path-search.md) | 複数のステップからなる反応を自動検出して多段階の最小エネルギー経路を構築する再帰的 MEP 探索。反応物・中間体・生成物構造を入力できる。 |
+| [`tsopt`](tsopt.md) | 単一構造の遷移状態（TS）構造最適化（Dimer または RS-P-RFO）。虚振動が一つの構造を得る。 |
 | [`irc`](irc.md) | 固有反応座標（IRC: Intrinsic Reaction Coordinate）計算 |
-| [`freq`](freq.md) | 振動解析と熱化学 |
+| [`freq`](freq.md) | 振動数解析と熱化学解析 |
 | [`dft`](dft.md) | DFT 一点計算（GPU4PySCF / PySCF） |
+| [`fix-altloc`](fix-altloc.md) | PDB の代替位置指示子を解決 |
+| [`add-elem-info`](add-elem-info.md) | PDB の元素列（77–78）を修復 |
 | [`sp`](sp.md) | ML/MM ONIOM のエネルギー・力。任意で Hessian |
-| [`bond-summary`](bond-summary.md) | 連続構造間の共有結合変化を検出・レポート |
-| [`trj2fig`](trj2fig.md) | XYZ 軌跡からエネルギープロファイルをプロット |
+| [`bond-summary`](bond-summary.md) | 複数の状態の構造間の共有結合変化を検出・レポート |
+| [`trj2fig`](trj2fig.md) | mlmm-toolkit が生成する XYZ トラジェクトリからエネルギープロファイルをプロット |
 | [`energy-diagram`](energy-diagram.md) | 数値入力からエネルギーダイアグラムを作成 |
 | [`oniom-export`](oniom-export.md) | Gaussian ONIOM または ORCA QM/MM の入力を生成 |
 | [`oniom-import`](oniom-import.md) | ONIOM の入力から XYZ・層付き PDB を再構築 |
@@ -92,27 +92,24 @@ orphan: true
 | **共通オプションと入力要件** | [共通オプションと残基・原子の指定](cli-conventions.md) |
 | **原子の固定と距離の拘束（`--freeze-atoms`・`--distance-restraint`）** | {ref}`原子の固定と距離の拘束 <ja-freeze-atoms-and-restraints>` |
 | **よくあるエラーと対処** | [トラブルシューティング](troubleshooting.md) |
-| **CLI コマンドの一覧（英語のみ、自動生成）** | [コマンドの一覧（英語のみ）](../reference/commands/index.md) |
+| **CLI コマンドの一覧** | [コマンドの一覧](../reference/commands/index.md) |
 | **YAML 設定オプション** | [YAML 設定の一覧](yaml-reference.md) · [YAML の抜粋（英語のみ）](../reference/yaml.md) |
 | **MLIP バックエンド設定** | [MLIP バックエンド](backends.md) |
-| **各コマンドが書き出すファイル** | [出力ディレクトリのレイアウト](output-layout.md) |
-| **`result.json` と `summary.json` の欄** | [JSON 出力の一覧](json-output.md) |
+| **各コマンドが書き出すファイル・ディレクトリの詳細** | [出力ディレクトリのレイアウト](output-layout.md) |
+| **結果を報告する JSON の項目詳細** | [JSON 出力の一覧](json-output.md) |
 | **GPU・CPU の割り当てと HPC** | [デバイス設定 & HPC セットアップ](device-hpc.md) |
 | **Python から ML/MM 計算機を使う** | [ML/MM 計算機](mlmm-calc.md) |
-| **AI エージェントから使う** | [エージェントスキル](#エージェントスキル) |
+| **AI エージェントに mlmm-toolkit を使わせる** | [エージェントスキル](#エージェントスキル) |
 | **コードの構成（開発者向け）** | [アーキテクチャ](architecture.md) |
 | **用語** | [用語集](glossary.md) |
 
 ## システム要件
 
-### ハードウェア
-- **OS**: Linux（Windows では WSL2 上の Linux に導入してください）
+- **OS**: Linux（Windows では WSL2 上の Linux を推奨、Mac でも仮想環境を推奨）
 - **GPU**: 使用するバックエンドと PyTorch wheel に対応する NVIDIA ドライバー。CPU のみでも実行可能ですが低速です
 - **VRAM / RAM**: モデル、系の大きさ、Hessian の計算方式で変わります。代表的な計算で最大使用量を測ってください
-
-### ソフトウェア
 - Python 3.12（推奨）または 3.13
-- CPU 版または CUDA 対応の PyTorch。GPU での UMA は実行時に gcc と CUDA も要ります
+- CPU 版または CUDA 対応の PyTorch。GPU での UMA は実行時に gcc と CUDA も必要です（標準的な HPC 環境には通常含まれています）。
 - AmberTools（`mm-parm` が Amber のトポロジーを作るのに使います）
 
 セットアップは [インストール](installation.md) を参照してください。
@@ -123,9 +120,13 @@ orphan: true
 
 ## エージェントスキル
 
-`mlmm-toolkit` は、CLI サブコマンド・構造 I/O・バックエンドインストール・ワークフロー・出力解析・HPC 運用をカバーする AI エージェント向けの手順書を `skills/` に同梱しています。導入するときは、AI エージェントに次のように指示してください。
+`mlmm-toolkit` は、ツールの使い方や反応機構解析の手順をまとめた AI エージェント向けの手順書を `skills/` に同梱しています。
 
-> `https://github.com/t-0hmura/mlmm_toolkit/tree/main/skills` をスキルとして取り込み、`mlmm-install` の手順に従って mlmm-toolkit をインストールして
+次の内容をカバーしています：CLI サブコマンド・構造 I/O・バックエンドインストール・ワークフロー・出力解析・HPC 運用
+
+導入するときは、AI エージェントに次のように指示してください。
+
+> `https://github.com/t-0hmura/mlmm_toolkit/tree/main/skills` をスキルとして取り込み、`mlmm-install` の手順に従って mlmm-toolkit をインストールしてください。
 
 GitHub のリポジトリを clone 済みなら、URL の代わりに手元の `skills/` のパスを渡しても構いません。導入後は、たとえば次のように指示できます。
 
@@ -135,7 +136,7 @@ GitHub のリポジトリを clone 済みなら、URL の代わりに手元の `
 
 ## 引用
 
-`mlmm-toolkit` を研究で利用する場合は、ChemRxiv の論文を引用してください:
+`mlmm-toolkit` を研究で利用する場合は、以下の論文を引用してください:
 
 ```bibtex
 @article{ohmura2025mlmm,

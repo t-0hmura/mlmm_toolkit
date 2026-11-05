@@ -139,7 +139,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 
 ## 関連ドキュメント
 
-* [MLIP の TS を DFT で確かめる](dft-backend.md) — ワークフローでの `-b dft` と `--dft`、DFT の設定、GPU メモリ
+* [MLIP での TS 構造を DFT で検証する](dft-backend.md) — ワークフローでの `-b dft` と `--dft`、DFT の設定、GPU メモリ
 * [sp](sp.md) — `-b dft` を含む任意のバックエンドでの ML/MM の一点エネルギーと力
 * [all](all.md) — 全工程のワークフロー。`--dft` で R・TS・P に DFT 一点計算を追加
 * [MLIP バックエンド](backends.md) — バックエンドの選び方

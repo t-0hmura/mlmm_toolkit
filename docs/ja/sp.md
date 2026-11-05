@@ -68,7 +68,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 | `-q, --charge` | 整数 | `None` | ML 領域の電荷。`-l` か YAML の `calc.model_charge` が無ければ必須 |
 | `-m, --multiplicity` | 整数 | `1` | ML 領域のスピン多重度（2S+1） |
 | `-l, --ligand-charge` | 文字列 | `None` | 残基ごとの形式電荷（例: `'SAM:1,GPP:-3'`）またはリガンドの総電荷。`-q` を省いたときに ML 領域の電荷を求めるのに使用（PDB/mmCIF 入力または `--ref-pdb`） |
-| `-b, --backend` | 文字列 | `uma` | ML 領域のバックエンド（`uma`, `orb`, `mace`, `aimnet2`, `dft`）。`-b dft` の設定は [MLIP の TS を DFT で確かめる](dft-backend.md) を参照 |
+| `-b, --backend` | 文字列 | `uma` | ML 領域のバックエンド（`uma`, `orb`, `mace`, `aimnet2`, `dft`）。`-b dft` の設定は [MLIP での TS 構造を DFT で検証する](dft-backend.md) を参照 |
 | `--hess/--no-hess` | フラグ | `False` | Hessian も計算して `hessian.npy` に書き出す |
 | `--hessian-calc-mode` | `FiniteDifference` / `Analytical` | `FiniteDifference` | Hessian の計算法（有限差分 / 解析的）。`--hess` と併用 |
 | `--hessian-cutoff` | 浮動小数点数 | `None` | ML 領域からこの距離（Å）以内の可動 MM 原子だけを Hessian に入れる。デフォルトでは可動 MM 原子すべて |
@@ -99,6 +99,6 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 * [tsopt](tsopt.md) — 遷移状態（TS）候補の構造最適化
 * [freq](freq.md) — 振動解析と熱化学
 * [dft](dft.md) — 原子電荷も出す ML 領域の DFT 一点計算
-* [MLIP の TS を DFT で確かめる](dft-backend.md) — `-b dft` の設定（`--func-basis`・`--dft-engine`）と GPU メモリ
+* [MLIP での TS 構造を DFT で検証する](dft-backend.md) — `-b dft` の設定（`--func-basis`・`--dft-engine`）と GPU メモリ
 * [MLIP バックエンド](backends.md) — バックエンド・精度・ワーカーの選び方
 * [トラブルシューティング](troubleshooting.md) — 実行に失敗したときの対処

@@ -479,4 +479,4 @@ copying the placeholder values.
 - [tsopt](../mlmm-cli/tsopt.md) and [freq](../mlmm-cli/freq.md): Hessian mode and the TS checks per backend.
 - [dft](../mlmm-cli/dft.md): the `dft` command and DFT//MLIP/MM single points.
 - [mlmm-model-setup](../mlmm-model-setup/SKILL.md#charge-and-multiplicity): choosing `-q` and `-m`.
-- Docs: [Installation](../../docs/installation.md), [MLIP Backends](../../docs/backends.md), [Refine an MLIP TS with DFT](../../docs/dft-backend.md).
+- Docs: [Installation](../../docs/installation.md), [MLIP Backends](../../docs/backends.md), [Validate the MLIP TS structure with DFT](../../docs/dft-backend.md).

@@ -275,7 +275,7 @@ mlmm all -i mutant_R.pdb mutant_P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' --tsopt 
 * [irc](irc.md) — IRC from a TS
 * [freq](freq.md) — vibrational analysis and thermochemistry
 * [dft](dft.md) — DFT single points of the ML region
-* [Refine an MLIP TS with DFT](dft-backend.md) — `-b dft` and `--dft`
+* [Validate the MLIP TS structure with DFT](dft-backend.md) — `-b dft` and `--dft`
 * [Tips for studying reaction mechanisms](mechanism-tips.md) — splitting the reaction, checking the TS, and what to try when it fails
 * [Troubleshooting](troubleshooting.md) — what to do when a run fails
 * [Getting Started](getting-started.md) — the shortest run and what to read next

@@ -39,7 +39,7 @@ mlmm all -i result_all/_work/path_opt/hei_seg_01.pdb -c 'SAM,GPP,MG' -l 'SAM:1,G
     -o ./result_ts_only
 ```
 
-TS そのものを DFT/MM（`-b dft`）で最適化する方法と、DFT 用の追加パッケージのインストールや GPU メモリについては [MLIP の TS を DFT で確かめる](dft-backend.md) を参照してください。
+TS そのものを DFT/MM（`-b dft`）で最適化する方法と、DFT 用の追加パッケージのインストールや GPU メモリについては [MLIP での TS 構造を DFT で検証する](dft-backend.md) を参照してください。
 
 ## 実行の前に
 
@@ -103,7 +103,7 @@ n_imag が 1 でないときや、IRC の端点が狙いと違うときは、[�
 
 ## 次のステップ
 
-- [MLIP の TS を DFT で確かめる](dft-backend.md): TS を DFT/MM で精密化して確かめる
+- [MLIP での TS 構造を DFT で検証する](dft-backend.md): TS を DFT/MM で精密化して確かめる
 - [反応機構を調べるコツ](mechanism-tips.md): TS の確かめ方と、TS が得られないときに試すこと
 - [`tsopt`](tsopt.md)・[`irc`](irc.md)・[`freq`](freq.md): 各段を単独で実行する
 - [クイックスタート: `mlmm all`](quickstart-all.md): R と P から MEP を作る

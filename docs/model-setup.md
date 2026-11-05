@@ -72,7 +72,7 @@ For the bundled example (`examples/beza/1.R.pdb` with `-c 'SAM,GPP,MG' -l 'SAM:1
 - **`--exclude-backbone`** and **`--no-include-h2o`** move main-chain atoms and waters out of the ML region; they stay in the system as MM.
 - **`-r 0 --selected-resn`** adds no residues by distance: the ML region holds the `-c` residues and the residues you list. In the bundled example, residues 44, 63, and 186 are the three closest to the methyl carbon of SAM (CS1); for your own system, pick the residues that take part in the reaction.
 
-`all` takes the same options; see example 1 of [Refine an MLIP TS with DFT](dft-backend.md#examples), and [Keep the ML region under about 300 atoms](dft-backend.md#keep-the-ml-region-under-about-300-atoms) for a DFT/MM run. A smaller ML region often has a different charge, so check it each time.
+`all` takes the same options; see example 1 of [Validate the MLIP TS structure with DFT](dft-backend.md#examples), and [Keep the ML region under about 300 atoms](dft-backend.md#keep-the-ml-region-under-about-300-atoms) for a DFT/MM run. A smaller ML region often has a different charge, so check it each time.
 
 ### Thin the movable MM shell
 
@@ -181,7 +181,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 - [`scan`](scan.md) — staged scans with restraints
 - [`freq`](freq.md) — PHVA and rigid modes with frozen atoms
 - [Tips for studying reaction mechanisms](mechanism-tips.md) — when to enlarge the model
-- [Refine an MLIP TS with DFT](dft-backend.md) — keeping the ML region small enough for DFT
+- [Validate the MLIP TS structure with DFT](dft-backend.md) — keeping the ML region small enough for DFT
 - [ML/MM Calculator](mlmm-calc.md) — link atoms, microiteration, and the MM Hessian
 - {ref}`ML/MM options <mlmm-options>` — `--parm7`, `--model-pdb`, `--detect-layer`, and `--movable-cutoff`
 - [Device Configuration & HPC Setup](device-hpc.md) — GPU memory and the size of the model

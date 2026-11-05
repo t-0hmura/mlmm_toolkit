@@ -73,7 +73,7 @@ For how `all` judges each stage, see [Reading the run status](all.md#reading-the
 ## Notes
 
 * **Reusing the preparation**: pass `mm_parm/1.R.parm7` with `--parm7` and `ml_region.pdb` with `--model-pdb` to the next run or to the single-stage commands, so that they compute the same system without building the topology again.
-* **DFT and GPU memory**: `--dft` needs the DFT extra installed in step 7 of {ref}`Step-by-step installation <step-by-step-installation>`; for GPU memory, see the Notes of [Refine an MLIP TS with DFT](dft-backend.md#notes).
+* **DFT and GPU memory**: `--dft` needs the DFT extra installed in step 7 of {ref}`Step-by-step installation <step-by-step-installation>`; for GPU memory, see the Notes of [Validate the MLIP TS structure with DFT](dft-backend.md#notes).
 * **Barriers in `summary.json`**: `segments[].barrier_kcal` is the barrier on the MEP, before TS optimization. With `--tsopt`, `post_segments[].mlip.barrier_kcal` is the ML/MM barrier from the optimized TS and endpoints; `--thermo` adds `post_segments[].gibbs_mlip.barrier_kcal` and `--dft` adds `post_segments[].dft.barrier_kcal`. `rate_limiting_step.barrier_kcal` is the highest barrier among the segments, compared at the highest level that every segment has (`DFT//MLIP/MM_Gibbs` > `DFT` > `MLIP_Gibbs` > `MLIP` > `MEP`); `rate_limiting_step.method` names that level.
 * **Run time**: it depends on the system size, the size of the ML region, the GPU, and the stages you request.
 
@@ -83,7 +83,7 @@ For how `all` judges each stage, see [Reading the run status](all.md#reading-the
 - [Quickstart: TS-only mode](quickstart-tsopt.md): optimize and check a TS candidate you already have
 - [Building the ML region and layers](model-setup.md): shrink the ML region, or extend it when residues are missing
 - [Tips for studying reaction mechanisms](mechanism-tips.md): plan the calculations, and what to try when the TS search fails
-- [Refine an MLIP TS with DFT](dft-backend.md): refine and check the TS with DFT/MM
+- [Validate the MLIP TS structure with DFT](dft-backend.md): refine and check the TS with DFT/MM
 - [`all`](all.md): option descriptions (also `mlmm all --help-advanced`)
 - [JSON Output Reference](json-output.md): the fields of `summary.json`
 - [Troubleshooting](troubleshooting.md): find an error message or symptom and its fix

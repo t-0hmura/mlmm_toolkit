@@ -182,5 +182,5 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 - [ML/MM 計算機](mlmm-calc.md)：ONIOM の結合、MM の Hessian、Python API（`MLMMCore`、`MLMMASECalculator`、`mlmm`）
 - [アーキテクチャ](architecture.md)：ディレクトリの構成と依存の向き
 - [デバイス設定 & HPC セットアップ](device-hpc.md)：GPU と CPU の割り当てとジョブのテンプレート
-- [MLIP の TS を DFT で確かめる](dft-backend.md)：DFT の設定、メモリ、チェックポイント
+- [MLIP での TS 構造を DFT で検証する](dft-backend.md)：DFT の設定、メモリ、チェックポイント
 - [トラブルシューティング](troubleshooting.md)：計算が失敗したとき

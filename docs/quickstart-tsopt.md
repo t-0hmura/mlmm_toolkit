@@ -39,7 +39,7 @@ mlmm all -i result_all/_work/path_opt/hei_seg_01.pdb -c 'SAM,GPP,MG' -l 'SAM:1,G
     -o ./result_ts_only
 ```
 
-To optimize the TS itself with DFT/MM (`-b dft`), and for the DFT extra and GPU memory, see [Refine an MLIP TS with DFT](dft-backend.md).
+To optimize the TS itself with DFT/MM (`-b dft`), and for the DFT extra and GPU memory, see [Validate the MLIP TS structure with DFT](dft-backend.md).
 
 ## Before you run
 
@@ -103,7 +103,7 @@ If n_imag is not 1 or the IRC endpoints are not the intended ones, see {ref}`Che
 
 ## Next steps
 
-- [Refine an MLIP TS with DFT](dft-backend.md): refine and check the TS with DFT/MM
+- [Validate the MLIP TS structure with DFT](dft-backend.md): refine and check the TS with DFT/MM
 - [Tips for studying reaction mechanisms](mechanism-tips.md): check the TS, and what to try when the TS search fails
 - [`tsopt`](tsopt.md), [`irc`](irc.md), [`freq`](freq.md): run each stage on its own
 - [Quickstart: `mlmm all`](quickstart-all.md): build an MEP from R and P
