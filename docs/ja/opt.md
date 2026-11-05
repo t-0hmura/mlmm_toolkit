@@ -78,7 +78,7 @@ mlmm opt -i system_layered.pdb --parm7 real.parm7 --model-pdb ml_region.pdb \
 | `--max-cycles` に達して未収束 | `not_converged` | `[opt] Reached max cycles (N/M).` | `failed` / 1 |
 | エネルギーが変わらなくなって停止（`--stop-plateau`） | `stalled` | `[opt] Stalled (energy plateau; not converged)` | `failed` / 1 |
 
-どの行の後にも `[opt] Total cycles: N` が出ます。`stalled` は収束ではありません。力の収束条件を満たさないまま、エネルギーが変わらなくなった状態です。
+どの行の後にも `[opt] Total cycles: N` が出ます。
 
 収束して得られるのは停留点で、極小点とは限りません。`opt` は `--flatten` のとき以外は最後の Hessian を計算しないので、final geometry に [`freq`](freq.md) を実行し、n_imag = 0 を確かめてください。
 

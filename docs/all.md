@@ -59,7 +59,7 @@ The optimized R, TS, and P are written to `result_all/segments/seg_01/`.
 
 After a process stops, repeat the original command with the same `--out-dir` and add `--resume`. It keeps finished segments and restarts the first unfinished segment from its saved HEI.
 
-To redo the post-processing from segment N, repeat the original command with the same inputs, extraction, layer, path, and calculator options and the same `--out-dir`, and add `--resume-segment N`. You can change post-processing options such as `--tsopt-max-cycles`, but not `--precision-post`: the segments before N keep their results, so the run stops when the post-processing precision differs. To change it, resume from segment 1.
+To redo the post-processing from segment N, repeat the original command with the same inputs, extraction, layer, path, and calculator options and the same `--out-dir`, and add `--resume-segment N`. Post-processing options other than `--precision-post`, such as `--tsopt-max-cycles`, may change.
 
 ```bash
 mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
@@ -107,9 +107,7 @@ A successful TS optimization gives one imaginary mode along the reaction coordin
 | Converged, n_imag = 1 | Runs IRC and optimizes both IRC ends. |
 | Converged, n_imag ≥ 2 | Warns, then runs IRC along the imaginary mode that best matches the MEP direction (the lowest one when none matches). The result is `partial`. |
 | Converged, n_imag = 0 | Stops before IRC. |
-| Stopped at the cycle limit | Computes no final Hessian and stops before IRC. |
-| Stopped by `--stop-plateau` (stalled) | Computes the final Hessian, reports n_imag, and stops before IRC. |
-| `--skip-final-freq` | Stops before IRC. |
+| Not converged (cycle limit or `--stop-plateau`), or the final Hessian skipped with `--skip-final-freq` | Stops before IRC. |
 | The final Hessian fails with an error | Stops the whole run (`execution_status` `failed`, exit 1); no later segment is processed. |
 
 The full table of how a TS optimization can end is in [`tsopt` → Reading the TS result](tsopt.md#reading-the-ts-result).
@@ -245,7 +243,7 @@ For every option, run `mlmm all --help-advanced` or see the [generated CLI refer
 * **Charge and multiplicity**: `-q` and `-m` describe the ML region, not the whole enzyme. With `-c`, the ML-region charge is the sum over the extracted model of the first input: built-in values for amino acids, ions, and water, `-l` for the other residues, and 0 for residues not listed in `-l`. Without `-c`, the same sum is taken over the ML region from the B-factors or `--model-pdb`. `-q` overrides the derived value with a warning; when no value can be derived, `calc.model_charge` in the YAML file is used. The multiplicity is `-m`, otherwise `calc.model_mult` in the YAML file, otherwise 1. See [Common options and selectors](cli-conventions.md).
 * **Frozen atoms and rigid-body motions**: the vibrational analysis projects out only the rigid translations and rotations that leave the frozen atoms in place, so with a frozen MM layer usually none are removed; see [freq → Rigid modes with frozen boundaries](freq.md#rigid-modes-with-frozen-boundaries).
 * **Separately prepared structures**: when the input structures were prepared independently, their differences outside the reaction coordinate enter the barrier. Compare the structures before reading the barrier. For two mechanisms of the same composition, use one common atom set and atom order for both paths.
-* **`--resume-segment`**: it needs `--tsopt` (give `--thermo` and `--dft` together with `--tsopt`), and cannot be combined with `--dry-run`. The run stops with an error when the saved inputs, ML region, topology, layered structures, or MEP do not match the command.
+* **`--resume-segment`**: it needs `--tsopt`, and cannot be combined with `--dry-run`. The run stops with an error when the saved inputs, ML region, topology, layered structures, or MEP do not match the command.
 
 ### Comparing a mutant with the wild type
 

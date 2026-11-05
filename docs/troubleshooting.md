@@ -23,9 +23,9 @@ Find your symptom in the quick table, then read the fix in the section it points
 | `orb-models is required for the ORB backend` (or the same for AIMNet2 / MACE) | Install the backend package: `pip uninstall fairchem-core && pip install orb-models` (in a separate environment) or `pip install "mlmm-toolkit[aimnet]"`; MACE also goes in a separate environment | {ref}`Backend-specific <troubleshooting-backends>` |
 | `mm-parm` cannot run (`AmberTools preflight failed`; `tleap` / `antechamber` / `parmchk2` missing) | Make AmberTools available first | {ref}`AmberTools / mm-parm <ambertools--mm-parm>` |
 | `hessian_ff` build or import errors (`hessian_ff build attempts failed`) | Check the C++20 compiler, then rebuild the native extension | {ref}`hessian_ff build / import <hessian_ff-build--import>` |
-| DMF mode import error (`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`) | `cyipopt` comes from conda-forge in the conda command of the installation, and `pydmf` is installed with `mlmm-toolkit`; if the import still fails with the default GPU backend, `pip install 'pydmf[torch]'` | {ref}`Installation / environment <installation-environment-problems>` |
+| DMF mode import error (`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`) | `cyipopt` comes from conda-forge in the conda command of the installation, and `pydmf` is installed with `mlmm-toolkit` | {ref}`Installation / environment <installation-environment-problems>` |
 | CUDA / GPU runtime mismatch | Check the GPU, the PyTorch build, and the driver together | {ref}`Installation / environment <installation-environment-problems>` |
-| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).` | Install a compiler: UMA on a GPU, and UMA and ORB with `--compile`, compile code at run time for speed | {ref}`System prerequisites <system-prerequisites>` |
+| `Missing system prerequisite: C compiler (gcc).` or `C++ compiler (g++).` | Load gcc and CUDA from the system (for example, `module load`), or run `conda install -c conda-forge cuda-nvcc` and reactivate the environment | {ref}`System prerequisites <system-prerequisites>` |
 | Plot export fails (`Missing system prerequisite: Chrome for PNG export.`) | Run `plotly_get_chrome -y`, then install the libraries Chrome needs | {ref}`System prerequisites <system-prerequisites>` |
 
 ## Preflight checklist
@@ -103,7 +103,7 @@ Enlarge the ML region as in [The ML region is too small or misses catalytic resi
 ### `AmberTools preflight failed`
 
 - **Symptom**: `mm-parm` stops with `AmberTools preflight failed. Missing required command(s): ... Required: tleap, antechamber, parmchk2`, or `all` stops with `[preflight] Missing required command(s) for mm_parm (AmberTools): ...`.
-- **Fix**: install AmberTools with `conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" -y`, load it with `module load ambertools` on HPC, or build it from source (<https://ambermd.org/AmberTools.php>). Verify with `which tleap antechamber parmchk2`. Without AmberTools, the individual commands still run when you pass a topology built elsewhere with `--parm7`.
+- **Fix**: install AmberTools with `conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5"`, load it with `module load ambertools` on HPC, or build it from source (<https://ambermd.org/AmberTools.php>). Verify with `which tleap antechamber parmchk2`. Without AmberTools, the individual commands still run when you pass a topology built elsewhere with `--parm7`.
 
 ### `antechamber` fails for a ligand
 
@@ -182,7 +182,7 @@ First confirm that the optional packages are installed in the active environment
 | --- | --- | --- |
 | UMA download fails (`huggingface_hub.errors.GatedRepoError`, `401`, `403`) | No Hugging Face login, or the UMA model license is not accepted | Run `hf auth login` once per machine, and accept the UMA model license on its Hugging Face page. On HPC, make sure compute nodes can write to the model cache (`$FAIRCHEM_CACHE_DIR`, default `~/.cache/fairchem`). For compute nodes without internet access, use the same env and the same `$FAIRCHEM_CACHE_DIR` on a shared filesystem, fetch each model once on a login node, e.g. `python -c "from fairchem.core import pretrained_mlip; pretrained_mlip.get_predict_unit('uma-s-1p2p1', device='cpu')"`, then `export HF_HUB_OFFLINE=1` in the job script |
 | `torch.cuda.is_available()` returns `False`, or a CUDA runtime error at import | The PyTorch build does not match the GPU or driver of the node | Check the assigned GPU, the installed PyTorch build, and the driver with `nvidia-smi`, `python -m torch.utils.collect_env`, and `python -m pip check`. The `CUDA Version` that `nvidia-smi` shows is the newest CUDA the driver supports; below 13.0, create the environment with `"pytorch=2.13.0=cuda129*"` instead of `cuda130` |
-| `--mep-mode dmf` fails with `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` | `cyipopt` is missing, or `pydmf` lacks its GPU part | Create the environment with cyipopt from conda-forge, as in {ref}`step 2 of the installation <step-by-step-installation>`. `pydmf` is installed with `mlmm-toolkit`; if the import still fails with the default GPU DMF backend, run `pip install 'pydmf[torch]'`, as the error message suggests |
+| `--mep-mode dmf` fails with `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` | `cyipopt` is missing | Create the environment with cyipopt from conda-forge, as in {ref}`step 2 of the installation <step-by-step-installation>`. `pydmf` is installed with `mlmm-toolkit` |
 | `Missing system prerequisite: C compiler (gcc).`, `C++ compiler (g++).` or `CUDA build tools.` (a PyTorch error `Failed to find C compiler` or `No working C++ compiler found`) | No compiler on `PATH`, or no CUDA headers or `ptxas`: UMA on a GPU, and UMA and ORB with `--compile`, compile code at run time for speed | Load gcc and CUDA from the system (for example, with `module load`), or run `conda install -c conda-forge cuda-nvcc` and reactivate the environment; then rerun the command |
 | Plot export fails (`Missing system prerequisite: Chrome for PNG export.`) | Headless Chrome is not installed, or an operating-system library it needs is missing | Run `plotly_get_chrome -y` once (it downloads a Chromium binary and needs internet access), then install the libraries in {ref}`System prerequisites <system-prerequisites>` |
 
@@ -222,8 +222,6 @@ Try in order:
 - **Cause**: MLIPs have finite numerical precision. For large ML/MM systems the noise floor can exceed the force thresholds, so the forces never drop further.
 - **Fix**:
   - Runs stop at `--max-cycles` (default 100000). To stop earlier, add `--stop-plateau` (`opt`, `tsopt`, and `all`): the run stops as `stalled`, which is not converged.
-  - To tune it, see [YAML Reference](yaml-reference.md#opt).
-  - The check skips GSM / DMF. For the single-structure preoptimization in `path-opt` / `path-search`, turn it on with YAML `opt.energy_plateau: true`.
 
 (troubleshooting-ts)=
 ### TS optimization does not converge / multiple imaginary modes remain
@@ -278,7 +276,6 @@ An IRC that stops before it converges is still usable when the endpoint optimiza
 - **Fix**:
   - ORB: a separate environment with `pip uninstall fairchem-core && pip install orb-models`. AIMNet2: `pip install "mlmm-toolkit[aimnet]"`.
   - MACE: use a dedicated environment, `pip uninstall fairchem-core && pip install mace-torch`; `mace-torch` pins `e3nn==0.4.4`, while UMA (`fairchem-core`) needs `e3nn>=0.5`.
-  - If ORB still fails to import after installing the package, fix the package that the import error names; do not add unrelated PyG packages.
 
 ---
 

@@ -6,7 +6,7 @@
 
 ## 主な用途
 
-* **TS の確認**: [`tsopt`](tsopt.md) と [`freq`](freq.md)（n_imag = 1）の後に、TS が意図した R と P をつなぐかを確かめる
+* **TS の確認**: [`tsopt`](tsopt.md)（n_imag = 1）の後に、TS が意図した R と P をつなぐかを確かめる
 * **R と P の取得**: 端点を [`opt`](opt.md) で最適化し、この TS の R と P の構造を得る
 * **`all` の IRC 段のやり直し**: [`all`](all.md) の IRC を、設定を変えて単独でたどり直す
 
@@ -85,8 +85,6 @@ IRC が収束しなくても、端点の最適化で狙った R と P に着け�
 | 各分岐の止まり方 | `result.json` の `forward_integration_converged` / `backward_integration_converged`。RMS 勾配が閾値を下回ったときは `true`、エネルギーで止まったときやサイクルの上限では `false` |
 | 経路に沿って変わる結合 | `result.json` の `bond_changes`（`finished_first` から `finished_last` への `formed` と `broken`） |
 | どちらの端が R でどちらが P か | `forward_first.xyz` と `backward_last.xyz` を [`opt`](opt.md) で最適化し、意図した R と P と比べる。順方向 / 逆方向の別では決まらない |
-
-`irc` は端点を判定しないので、端点が狙った R と P かは自分で確かめてください。
 
 端点は `.xyz` なので、原子の順と層を与える TS の PDB を `--ref-pdb` で渡して、両方の端点を `opt` で最適化してください。
 
@@ -179,7 +177,7 @@ ML/MM の計算コマンドに共通のオプションは {ref}`ML/MM の共通�
 ## 関連ドキュメント
 
 * [tsopt](tsopt.md) — IRC の前に TS を最適化する
-* [freq](freq.md) — TS の虚振動が 1 つ（n_imag = 1）であることを確かめる
+* [freq](freq.md) — 完全な振動解析と熱化学補正
 * [opt](opt.md) — IRC の端点を R と P へ最適化する
 * [all](all.md) — `tsopt` の後に IRC を実行し、端点まで最適化する一連のワークフロー
 * [トラブルシューティング](troubleshooting.md) — 実行が失敗したときの切り分け

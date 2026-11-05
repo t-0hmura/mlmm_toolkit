@@ -6,7 +6,7 @@
 
 ## What it is for
 
-* **Checking a TS**: after [`tsopt`](tsopt.md) and [`freq`](freq.md) (n_imag = 1), confirm that the TS connects the intended R and P.
+* **Checking a TS**: after [`tsopt`](tsopt.md) (n_imag = 1), confirm that the TS connects the intended R and P.
 * **Getting R and P**: optimize the endpoints with [`opt`](opt.md) to obtain the R and P structures of this TS.
 * **Rerunning the IRC step of `all`**: trace the IRC of an [`all`](all.md) run again on its own, with different settings.
 
@@ -85,8 +85,6 @@ Even if the IRC does not converge, the result is usable when the endpoints, opti
 | How each branch stopped | `forward_integration_converged` / `backward_integration_converged` in `result.json`: `true` when the RMS gradient fell below the threshold, `false` for an energy stop or the cycle limit |
 | Bonds that change along the path | `bond_changes` in `result.json` (`formed` and `broken`, from `finished_first` to `finished_last`) |
 | Which end is R and which is P | Optimize `forward_first.xyz` and `backward_last.xyz` with [`opt`](opt.md) and compare them with the intended R and P. The forward / backward label does not decide it |
-
-`irc` does not judge the endpoints; whether they are the intended R and P is for you to check.
 
 Optimize both endpoints with `opt`; they are `.xyz` files, so pass the TS PDB with `--ref-pdb` for the atom order and the layers:
 
@@ -179,7 +177,7 @@ See the [generated CLI reference](reference/commands/irc.md) for every option.
 ## See also
 
 * [tsopt](tsopt.md) — optimize the TS before running IRC
-* [freq](freq.md) — check that the TS has one imaginary mode (n_imag = 1)
+* [freq](freq.md) — full vibrational analysis and thermochemistry
 * [opt](opt.md) — optimize the IRC endpoints to R and P
 * [all](all.md) — the full workflow, which runs IRC after `tsopt` and optimizes the endpoints
 * [Troubleshooting](troubleshooting.md) — when a run fails

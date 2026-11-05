@@ -78,7 +78,7 @@ How the run ended is printed on the console and recorded in `result.json` (`--ou
 | Reached `--max-cycles` without converging | `not_converged` | `[opt] Reached max cycles (N/M).` | `failed` / 1 |
 | Stopped on an energy plateau (`--stop-plateau`) | `stalled` | `[opt] Stalled (energy plateau; not converged)` | `failed` / 1 |
 
-Each of these lines is followed by `[opt] Total cycles: N`. A `stalled` run is not converged: the energy stopped changing while the force criteria were still unmet.
+Each of these lines is followed by `[opt] Total cycles: N`.
 
 Convergence gives a stationary point, not necessarily a minimum. `opt` computes no final Hessian unless `--flatten` is on, so run [`freq`](freq.md) on the final geometry and check that n_imag = 0.
 

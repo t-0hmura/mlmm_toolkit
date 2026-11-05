@@ -27,12 +27,12 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b mac
 mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aimnet2
 ```
 
-| backend | install | model identifier | precision option |
+| backend | install | model identifier | `--precision` |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install mlmm-toolkit` (`fairchem-core` is a core dependency) + [Hugging Face login](installation.md) | `uma-s-1p2p1` (default) / `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
-| `orb` | separate Python 3.12 env: `pip uninstall fairchem-core && pip install orb-models` (UMA stays in the main env) | `orbmol-v2` (default) / `orb_v3_conservative_omol` (conservative models only, which take the forces from the energy gradient) | `orb_precision="float32-high" \| "float32-highest" \| "float64"` (`tf32` is accepted for `float32-high`, and `fp32` / `float32` for `float32-highest`) |
-| `mace` | dedicated env: `pip uninstall fairchem-core && pip install mace-torch` (`mace-torch` pins an `e3nn` version that conflicts with UMA, so UMA does not run in this env) | `MACE-OMOL-0` (default) / `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
-| `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` (default) / `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | n/a |
+| `uma` | `pip install mlmm-toolkit` (`fairchem-core` is a core dependency) + [Hugging Face login](installation.md) | `uma-s-1p2p1` (default) / `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `tf32` / `fp32` / `fp64` |
+| `orb` | separate Python 3.12 env: `pip uninstall fairchem-core && pip install orb-models` (UMA stays in the main env) | `orbmol-v2` (default) / `orb_v3_conservative_omol` (conservative models only, which take the forces from the energy gradient) | `tf32` / `fp32` / `fp64` |
+| `mace` | dedicated env: `pip uninstall fairchem-core && pip install mace-torch` (UMA does not run in this env) | `MACE-OMOL-0` (default) / `MACE-POLAR-1-S` / `-M` / `-L` | `fp32` / `fp64` |
+| `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2` (default) / `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | `fp32` only |
 
 `--backend-model NAME` overrides the model variant for the selected `--backend`
 (e.g. `--backend uma --backend-model uma-m-1p1`). `-b dft` computes the ML region with
@@ -57,9 +57,7 @@ Notes on the models in the table:
 - AIMNet2: `aimnet2` (the default, wB97M-D3), `aimnet2-2025` (improved B97-3c),
   and `aimnet2-pd` (B97-3c with CPCM(THF) solvation built into the model;
   covers Pd) are closed-shell only. `aimnet2-nse` (wB97M-D3) handles
-  open-shell systems; set the multiplicity with `-m`. mlmm passes the ML-region
-  charge and multiplicity to AIMNet2 as `charge` and `mult`; only `aimnet2-nse`
-  uses `mult`, and the other models ignore it.
+  open-shell systems; set the multiplicity with `-m`.
 
 The run prints the backend and model it loads, for example
 `[backend] Preparing MLIP model (UMA / UMA-S-1.2.1 (OMol))...`, and the
@@ -146,18 +144,6 @@ version provides them, and the DFT backend does so without `--embedcharge`. A cu
 selected backend, the run stops with an error. The [MM part of the Hessian](mlmm-calc.md) is
 set separately.
 
-Choose one of these two settings with UMA:
-
-```bash
---uma-workers 1 --hessian-calc-mode Analytical       # analytical Hessian
---uma-workers 4 --hessian-calc-mode FiniteDifference # parallel UMA predictor + FD
-```
-
-Model precision and Hessian precision are separate settings. The Hessian is
-assembled in float64 by default (`calc.H_double: true`); `H_double: false`
-returns it in float32. With `--precision fp64`, the Hessian is always float64:
-`H_double: false` in the config is overridden with a warning.
-
 ## xTB electrostatic correction
 
 For MLIP/MM workflows, `--embedcharge/--no-embedcharge` (default off) adds
@@ -165,8 +151,7 @@ For MLIP/MM workflows, `--embedcharge/--no-embedcharge` (default off) adds
 corresponding force and Hessian difference, so the ML region feels the MM point
 charges. xTB sees the same ML region and link hydrogens as the MLIP. The
 embedding follows ONIOM-EE: MM atoms one or two bonds from the ML region are not
-point charges, and MODEL-low adds the Coulomb energy between the ML force-field
-charges and the point charges ([ML/MM Calculator](mlmm-calc.md)).
+point charges ([ML/MM Calculator](mlmm-calc.md)).
 
 With `-b dft`, `--embedcharge` instead places the same MM point charges directly
 in the PySCF Hamiltonian, without the xTB correction.
@@ -282,8 +267,6 @@ ML-region energy, forces, and Hessian in the correct units.
 
 - `--precision tf32`, and `--precision fp32` on ORB or MACE, are for screening
   only; check n_imag before you use the result.
-- For ORB, `--precision tf32` selects the `float32-high` (TF32) mode and
-  `--precision fp32` the IEEE FP32 `float32-highest` mode.
 - With UMA, `--precision tf32` runs FAIR-Chem's UMA Nitro where the installed
   fairchem-core provides it (the `uma-s-1p2p1` checkpoints, one worker); other
   checkpoints run the fast path with TF32. FAIR-Chem logs
@@ -293,29 +276,20 @@ ML-region energy, forces, and Hessian in the correct units.
   computes forces with its own CUDA code outside PyTorch's deterministic mode.
   When you need repeatable runs, use UMA, ORB, or MACE with `--deterministic`
   and run twice in the same environment to compare.
-- `--calc-file` accepts neither `--precision` (`tf32`, `fp32` or `fp64`) nor
-  `--deterministic`; both stop the run with an error. Set the precision inside
-  your calculator.
 - `--deterministic` turns on PyTorch's deterministic algorithms (`torch.use_deterministic_algorithms`) and replaces one PyTorch operation that has no deterministic GPU version.
-- `--deterministic` applies to the whole process: set on `all`, it covers every stage that `all` runs, so you do not pass it per stage.
+- `--deterministic` applies to the whole process: set on `all`, it covers every MLIP stage that `all` runs, so you do not pass it per stage.
 - `--deterministic` can be slower: deterministic GPU operations may use different, slower implementations. Use it only when you need repeated runs to match.
 - `--deterministic` stops with an error when PyTorch has no deterministic version of an operation in the run, instead of silently giving non-reproducible output.
 - The environment variable `MLMM_STRICT_DETERMINISTIC=1` turns on the same mode for CI jobs or the Python API; with it set, `--no-deterministic` does not turn the mode off.
-- `--deterministic` alone does not guarantee bit-identical results across
-  machines or software versions; compare two runs on the target setup.
 - With UMA, `--uma-workers` above 1 cannot be combined with
   `--hessian-calc-mode Analytical`: the run stops with an error because the
   parallel predictor has no autograd model. Use `--uma-workers 1` for an
   analytical Hessian, or `FiniteDifference` with several workers.
-- MACE cannot share an environment with UMA; install it in its own conda env. Install ORB in its own env as well.
-- A backend whose package is not installed stops with an error such as ``orb-models is required for the ORB backend. Install it in a separate environment with `pip uninstall fairchem-core && pip install orb-models`.``
 - `--embedcharge` runs xTB with and without the MM point charges at every
   energy, force, and Hessian evaluation; keep the ML region to about 200–300
   atoms and benchmark the actual system first. The Hessian of the xTB
-  correction is a finite difference over the ML atoms and link hydrogens: the
-  point-charge forces of those runs give the ML–MM part, and the MM–MM part
-  uses the xTB atomic charges of the ML region, so the cost does not grow with
-  the number of MM atoms.
+  correction displaces only the ML atoms and link hydrogens, so the number of
+  xTB runs does not grow with the number of MM atoms.
 
 ## See Also
 

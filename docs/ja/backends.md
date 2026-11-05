@@ -20,12 +20,12 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b mac
 mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aimnet2
 ```
 
-| バックエンド | インストール | モデル名 | 精度の設定 |
+| バックエンド | インストール | モデル名 | `--precision` |
 |---------|---------|------------------|------------------|
-| `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2p1`（デフォルト）/ `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `uma_precision="tf32" \| "fp32" \| "fp64"` |
-| `orb` | 別の Python 3.12 の環境で `pip uninstall fairchem-core && pip install orb-models`（UMA は元の環境で使います） | `orbmol-v2`（デフォルト）/ `orb_v3_conservative_omol`（エネルギーの勾配から力を求める conservative モデルのみ） | `orb_precision="float32-high" \| "float32-highest" \| "float64"`（`float32-high` は `tf32`、`float32-highest` は `fp32`・`float32` の名前でも受け付けます） |
-| `mace` | 専用の環境で `pip uninstall fairchem-core && pip install mace-torch`（`mace-torch` が固定する `e3nn` の版が UMA と衝突するため、この環境では UMA は動きません） | `MACE-OMOL-0`（デフォルト）/ `MACE-POLAR-1-S` / `-M` / `-L` | `mace_dtype="float32" \| "float64"` |
-| `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2`（デフォルト）/ `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | なし |
+| `uma` | `pip install mlmm-toolkit`（`fairchem-core` は本体の依存）＋ [Hugging Face へのログイン](installation.md) | `uma-s-1p2p1`（デフォルト）/ `uma-s-1p2p1-ft-d4rev` / `uma-s-1p2` / `uma-m-1p1` | `tf32` / `fp32` / `fp64` |
+| `orb` | 別の Python 3.12 の環境で `pip uninstall fairchem-core && pip install orb-models`（UMA は元の環境で使います） | `orbmol-v2`（デフォルト）/ `orb_v3_conservative_omol`（エネルギーの勾配から力を求める conservative モデルのみ） | `tf32` / `fp32` / `fp64` |
+| `mace` | 専用の環境で `pip uninstall fairchem-core && pip install mace-torch`（この環境では UMA は動きません） | `MACE-OMOL-0`（デフォルト）/ `MACE-POLAR-1-S` / `-M` / `-L` | `fp32` / `fp64` |
+| `aimnet2` | `pip install "mlmm-toolkit[aimnet]"` | `aimnet2`（デフォルト）/ `aimnet2-2025` / `aimnet2-nse` / `aimnet2-pd` | `fp32` のみ |
 
 `--backend-model NAME` は、選んだ `--backend` のモデルを替えます（例：`--backend uma --backend-model uma-m-1p1`）。`-b dft` を付けると ML 領域を [DFT](#dftmm-バックエンド) で計算でき、`--calc-file` で {ref}`任意の ASE calculator <ja-backends-custom-calculator>` を使えます。
 
@@ -34,7 +34,7 @@ mlmm opt -i complex.pdb --parm7 real.parm7 --model-pdb ml_region.pdb -q 0 -b aim
 - `uma-s-1p2p1-ft-d4rev`：UMA-S-1.2.1 を OMol25 の約 400 万構造で ωB97M-D4rev に fine-tune したモデルです。分散力を含むので、分散補正を足さないでください。タスクは `omol` だけで、孤立原子の参照エネルギーはありません。fairchem-core 2.24 以上が要ります。
 - `orbmol-v2`（デフォルト、OrbMol-v2）：全電荷とスピン多重度を受け取る conservative モデルで、原子ごとに学習する電荷と長距離の Coulomb 項を加え、OMol25 と OPoly26（ωB97M-V/def2-TZVPD）で学習しています。`--backend-model orb_v3_conservative_omol` で OrbMol-v1 を使えます。
 - `MACE-POLAR-1-S`・`-M`・`-L`：OMol25（ωB97M-V）で学習し、学習した電荷とスピンの密度から長距離の静電相互作用を計算するモデルで、どの全電荷とスピンでも使えます。`pip install 'mace-torch[polar]>=0.3.17'` が要ります（graph-longrange 0.4.4 以上も入ります）。
-- AIMNet2：`aimnet2`（デフォルト、wB97M-D3）、`aimnet2-2025`（改良した B97-3c）、`aimnet2-pd`（CPCM（THF）の溶媒をモデルに含む B97-3c。Pd を扱えます）は閉殻だけです。`aimnet2-nse`（wB97M-D3）は開殻の系を扱えるので、多重度を `-m` で指定してください。mlmm は ML 領域の電荷と多重度を AIMNet2 に `charge` と `mult` として渡します。`mult` を使うのは `aimnet2-nse` だけで、ほかのモデルは無視します。
+- AIMNet2：`aimnet2`（デフォルト、wB97M-D3）、`aimnet2-2025`（改良した B97-3c）、`aimnet2-pd`（CPCM（THF）の溶媒をモデルに含む B97-3c。Pd を扱えます）は閉殻だけです。`aimnet2-nse`（wB97M-D3）は開殻の系を扱えるので、多重度を `-m` で指定してください。
 
 実行時には、読み込むバックエンドとモデルが `[backend] Preparing MLIP model (UMA / UMA-S-1.2.1 (OMol))...` のように表示され、[JSON の出力](json-output.md#共通エンベロープ)の `mlip_backend`・`mlip_model`・`mlip_precision` に記録されます。
 
@@ -98,18 +98,9 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 
 `--hessian-calc-mode` で、ML 領域の Hessian の計算方式を選びます。このフラグは `freq`、`irc`、`tsopt`、`sp`、`all` にあり、YAML では `calc.hessian_calc_mode` です。`FiniteDifference`（デフォルト）は力の中心差分を取り、`Analytical` はバックエンドの自動微分またはネイティブの Hessian を使います。UMA（ワーカー 1 つのとき）、ORB、MACE、AIMNet2 はインストールした版が対応していれば解析 Hessian を計算でき、DFT のバックエンドも `--embedcharge` なしなら計算できます。自作の calculator は `FiniteDifference` だけに対応します。選んだバックエンドで解析 Hessian が使えないときは、エラーで止まります。[Hessian の MM の部分](mlmm-calc.md)は別に設定します。
 
-UMA では次の 2 つのどちらかを選んでください。
-
-```bash
---uma-workers 1 --hessian-calc-mode Analytical       # 解析 Hessian
---uma-workers 4 --hessian-calc-mode FiniteDifference # 並列の UMA 予測器 + 有限差分
-```
-
-モデルの精度と Hessian の精度は別の設定です。Hessian はデフォルト（`calc.H_double: true`）では float64 で組み立て、`H_double: false` にすると float32 で返します。`--precision fp64` のときは Hessian も常に float64 になり、設定ファイルの `H_double: false` は警告を出して上書きされます。
-
 ## xTB 静電補正
 
-MLIP/MM の計算では、`--embedcharge/--no-embedcharge`（デフォルトはオフ）で `E_xTB(ML + link H + MM point charges) - E_xTB(ML + link H)` と、それに対応する力と Hessian の差を足し、ML 領域に MM の点電荷の影響を入れます。xTB には MLIP と同じ ML 領域とリンク水素を渡します。埋め込みは ONIOM-EE の形で、ML 領域から 1・2 結合の MM 原子は点電荷にせず、MODEL-low には ML 原子の力場の電荷と点電荷との Coulomb エネルギーを足します（[ML/MM 計算機](mlmm-calc.md)）。
+MLIP/MM の計算では、`--embedcharge/--no-embedcharge`（デフォルトはオフ）で `E_xTB(ML + link H + MM point charges) - E_xTB(ML + link H)` と、それに対応する力と Hessian の差を足し、ML 領域に MM の点電荷の影響を入れます。xTB には MLIP と同じ ML 領域とリンク水素を渡します。埋め込みは ONIOM-EE の形で、ML 領域から 1・2 結合の MM 原子は点電荷にしません（[ML/MM 計算機](mlmm-calc.md)）。
 
 `-b dft` では、`--embedcharge` は xTB の補正を使わず、同じ MM の点電荷を PySCF のハミルトニアンに直接入れます。
 
@@ -176,20 +167,15 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 ## 使用上の注意点
 
 - `--precision tf32` と、ORB・MACE の `--precision fp32` はスクリーニング専用です。結果を使う前に n_imag を確かめてください。
-- ORB では、`--precision tf32` が `float32-high`（TF32）、`--precision fp32` が IEEE の FP32 の `float32-highest` のモードになります。
 - UMA の `--precision tf32` は、インストールした fairchem-core に UMA Nitro があれば（`uma-s-1p2p1` 系の checkpoint、ワーカー 1 つ）それで計算します。ほかの checkpoint は TF32 の速い経路で計算します。GPU での tf32 の計算では、FAIR-Chem が毎回 `Running in a reduced-precision mode` と出力します。
 - AIMNet2 は `--precision fp64` にも `--deterministic` にも対応せず、どちらもエラーで止まります。AIMNet2 はモデルへの入力を float32 にし、力を PyTorch の決定論的モードの外にある独自の CUDA のコードで計算します。繰り返しの計算を一致させたいときは、UMA、ORB、MACE のいずれかで `--deterministic` を付け、同じ環境で 2 回実行して比べてください。
-- `--calc-file` は `--precision`（`tf32` も `fp32` も `fp64` も）と `--deterministic` のどちらも受け付けず、エラーで止まります。精度は自作の calculator の中で設定してください。
 - `--deterministic` は PyTorch の決定論的アルゴリズム（`torch.use_deterministic_algorithms`）を有効にし、GPU で決定論的に動く版の無い PyTorch の演算 1 つを置き換えます。
-- `--deterministic` はプロセス全体に効きます。`all` に付ければ `all` が実行する段すべてに効くので、段ごとに付ける必要はありません。
+- `--deterministic` はプロセス全体に効きます。`all` に付ければ `all` が実行する MLIP の段すべてに効くので、段ごとに付ける必要はありません。
 - `--deterministic` を付けると遅くなることがあります。決定論的な GPU の演算は別の遅い実装を使うことがあるので、繰り返しの計算を一致させる必要があるときだけ使ってください。
 - `--deterministic` では、実行する演算に PyTorch の決定論的な版が無いときは、再現しない結果を出さずに、エラーで止まります。
 - 環境変数 `MLMM_STRICT_DETERMINISTIC=1` でも、CI のジョブや Python API で同じモードになります。この変数があると、`--no-deterministic` を付けてもモードは切れません。
-- `--deterministic` だけでは、別の計算機やソフトウェアの版でのビット単位の一致は保証されません。使う環境で 2 回実行して比べてください。
 - UMA で `--uma-workers` を 2 以上にすると、`--hessian-calc-mode Analytical` とは併用できず、エラーで止まります。並列の予測器は autograd のモデルを持たないためです。解析 Hessian には `--uma-workers 1` を、複数のワーカーには `FiniteDifference` を使ってください。
-- MACE は UMA と同じ環境には入れられません。専用の conda 環境に入れてください。ORB も別の環境に入れてください。
-- パッケージを入れていないバックエンドを選ぶと、``orb-models is required for the ORB backend. Install it in a separate environment with `pip uninstall fairchem-core && pip install orb-models`.`` のようなエラーで止まります。
-- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子程度までにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子とリンク水素についての有限差分です。そのときの点電荷にかかる力から ML–MM の部分を、ML 領域の xTB の原子電荷から MM–MM の部分を求めるので、MM 原子が多くても重くなりません。
+- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子程度までにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子とリンク水素だけを変位させるので、MM 原子の数が増えても xTB の実行回数は増えません。
 
 ## 関連ドキュメント
 

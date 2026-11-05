@@ -23,9 +23,9 @@
 | `orb-models is required for the ORB backend`（AIMNet2 / MACE も同様） | バックエンドの追加パッケージを入れてください：`pip uninstall fairchem-core && pip install orb-models`（別の環境に）または `pip install "mlmm-toolkit[aimnet]"`。MACE も別の環境に入れます | {ref}`バックエンド固有の問題 <ja-troubleshooting-backends>` |
 | `mm-parm` が実行できない（`AmberTools preflight failed`。`tleap` / `antechamber` / `parmchk2` が無い） | 先に AmberTools を使えるようにしてください | {ref}`AmberTools / mm-parm の問題 <ja-ambertools--mm-parm>` |
 | `hessian_ff` のビルドや import のエラー（`hessian_ff build attempts failed`） | C++20 のコンパイラを確かめ、ネイティブ拡張を作り直してください | {ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` |
-| DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt` はインストールの conda のコマンドで conda-forge から入り、`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版でそれでもインポートに失敗するときは、`pip install 'pydmf[torch]'` | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
+| DMF モードの import エラー（`DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2`） | `cyipopt` はインストールの conda のコマンドで conda-forge から入り、`pydmf` は `mlmm-toolkit` と一緒に入ります | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
 | CUDA / GPU の実行時エラー | GPU、PyTorch のビルド、ドライバをまとめて確かめてください | {ref}`インストール / 環境の問題 <ja-installation-environment-problems>` |
-| `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).` | コンパイラを入れてください。GPU での UMA と、`--compile` を付けた UMA と ORB は実行時に高速化のためコンパイルをします | {ref}`システムの前提パッケージ <ja-system-prerequisites>` |
+| `Missing system prerequisite: C compiler (gcc).` または `C++ compiler (g++).` | `module load` などでシステムの gcc と CUDA を読み込むか、`conda install -c conda-forge cuda-nvcc` を実行して環境を再度 activate してください | {ref}`システムの前提パッケージ <ja-system-prerequisites>` |
 | 図の出力に失敗する（`Missing system prerequisite: Chrome for PNG export.`） | `plotly_get_chrome -y` を実行し、続けて Chrome が使うライブラリを入れてください | {ref}`システムの前提パッケージ <ja-system-prerequisites>` |
 
 ## 実行前チェックリスト
@@ -103,7 +103,7 @@
 ### `AmberTools preflight failed`
 
 - **症状**：`mm-parm` が `AmberTools preflight failed. Missing required command(s): ... Required: tleap, antechamber, parmchk2` で、`all` が `[preflight] Missing required command(s) for mm_parm (AmberTools): ...` で止まる。
-- **対処**：`conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5" -y` で AmberTools を入れるか、HPC では `module load ambertools` で読み込むか、ソースからビルドしてください（<https://ambermd.org/AmberTools.php>）。`which tleap antechamber parmchk2` で確かめます。AmberTools が無くても、別に作ったトポロジーを `--parm7` で渡せば個別のコマンドは動きます。
+- **対処**：`conda install -c conda-forge ambertools=24.8 "numpy>=2,<2.5"` で AmberTools を入れるか、HPC では `module load ambertools` で読み込むか、ソースからビルドしてください（<https://ambermd.org/AmberTools.php>）。`which tleap antechamber parmchk2` で確かめます。AmberTools が無くても、別に作ったトポロジーを `--parm7` で渡せば個別のコマンドは動きます。
 
 ### リガンドで `antechamber` が失敗する
 
@@ -182,7 +182,7 @@
 | --- | --- | --- |
 | UMA のダウンロードに失敗する（`huggingface_hub.errors.GatedRepoError`、`401`、`403`） | Hugging Face にログインしていない、または UMA モデルのライセンスに同意していない | マシンごとに一度 `hf auth login` を実行し、Hugging Face の UMA モデルのページでライセンスに同意してください。HPC では、計算ノードからモデルのキャッシュ（`$FAIRCHEM_CACHE_DIR`、デフォルトは `~/.cache/fairchem`）に書き込めるかを確かめます。インターネットに接続できない計算ノードでは、同じ環境と、共有ファイルシステム上の同じ `$FAIRCHEM_CACHE_DIR` を使い、ログインノードで各モデルを 1 回取得してから（例: `python -c "from fairchem.core import pretrained_mlip; pretrained_mlip.get_predict_unit('uma-s-1p2p1', device='cpu')"`）、ジョブスクリプトで `export HF_HUB_OFFLINE=1` を設定します |
 | `torch.cuda.is_available()` が `False`、またはインポート時に CUDA の実行時エラー | PyTorch のビルドが計算ノードの GPU・ドライバに合っていない | `nvidia-smi`、`python -m torch.utils.collect_env`、`python -m pip check` で、割り当てられた GPU、入っている PyTorch のビルド、ドライバを確認してください。`nvidia-smi` が示す `CUDA Version` はドライバが扱える最も新しい CUDA です。13.0 より小さいときは、`cuda130` の代わりに `"pytorch=2.13.0=cuda129*"` で環境を作ってください |
-| `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` が無い、または `pydmf` の GPU 用の部分が無い | {ref}`インストールの手順 2 <ja-step-by-step-installation>` のとおり、cyipopt を conda-forge から入れて環境を作ってください。`pydmf` は `mlmm-toolkit` と一緒に入ります。デフォルトの GPU 版 DMF でそれでもインポートに失敗するときは、エラーの文が勧めるとおり `pip install 'pydmf[torch]'` を実行してください |
+| `--mep-mode dmf` が `DMF mode (--mep-mode dmf) requires ase, cyipopt, and pydmf>=1.2` で止まる | `cyipopt` が無い | {ref}`インストールの手順 2 <ja-step-by-step-installation>` のとおり、cyipopt を conda-forge から入れて環境を作ってください。`pydmf` は `mlmm-toolkit` と一緒に入ります |
 | `Missing system prerequisite: C compiler (gcc).`、`C++ compiler (g++).` または `CUDA build tools.`（PyTorch のエラー `Failed to find C compiler`、`No working C++ compiler found`） | `PATH` 上にコンパイラが無い、または CUDA のヘッダーや `ptxas` が無い。GPU での UMA と、`--compile` を付けた UMA と ORB は実行時に高速化のためコンパイルをします | `module load` などでシステムの gcc と CUDA を読み込むか、`conda install -c conda-forge cuda-nvcc` を実行して環境を再度 activate してから、再実行してください |
 | 図の出力に失敗する（`Missing system prerequisite: Chrome for PNG export.`） | ヘッドレス Chrome が入っていない、または Chrome が使う OS のライブラリが無い | `plotly_get_chrome -y` を一度実行し（Chromium のバイナリをダウンロードするので、インターネット接続が必要です）、続けて {ref}`システムの前提パッケージ <ja-system-prerequisites>` のライブラリを入れてください |
 
@@ -216,8 +216,6 @@ IPOPT/MUMPS が並列版 BLIS を使う環境では、入れ子の並列化で�
 - **原因**：MLIP の力には数値精度によるノイズフロアがあります。大きな ML/MM 系では、これが標準の力の閾値を上回り、構造がほぼ止まっていても力が閾値を下回りません。
 - **対処**：
   - 実行の上限は `--max-cycles`（デフォルト 100000）です。エネルギーが平坦になった時点で早く止めたいときは、`--stop-plateau`（`opt`、`tsopt`、`all`）を付けてください。`stalled`（未収束）として止まります。
-  - 判定の調整は [YAML 設定の一覧](yaml-reference.md#opt) を参照してください。
-  - この判定は GSM / DMF では行いません。`path-opt` / `path-search` の単一構造の事前最適化では、YAML の `opt.energy_plateau: true` で有効にします。
 
 (ja-troubleshooting-ts)=
 ### TS 最適化が収束しない・虚振動が複数残る
@@ -272,7 +270,6 @@ IRC が収束せずに止まっても、端点の最適化で狙った R と P �
 - **対処**：
   - ORB：別の環境で `pip uninstall fairchem-core && pip install orb-models`。AIMNet2：`pip install "mlmm-toolkit[aimnet]"`。
   - MACE：専用の環境で `pip uninstall fairchem-core && pip install mace-torch` を実行してください。`mace-torch` は `e3nn==0.4.4` に固定し、UMA（`fairchem-core`）は `e3nn>=0.5` を必要とします。
-  - 追加パッケージを入れても ORB を import できないときは、import のエラーが名指ししたパッケージを直してください。関係のない PyG のパッケージは入れないでください。
 
 ---
 

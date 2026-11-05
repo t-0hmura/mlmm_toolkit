@@ -29,7 +29,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     -r 0 --selected-resn '44,63,186' --tsopt
 ```
 
-`-r 0` で切り出しの半径を 0 Å にすると、距離で近くの残基を足すのを止め、`-c` と `--selected-resn` の残基から ML 領域を組みます。[`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza) の同梱例の 44・63・186 番は、SAM のメチル炭素（CS1）に最も近い 3 残基です。同梱の PDB は chain の欄が空なので、残基は名前か番号で指定してください。自分の系では、反応に関わる残基を選んでください。
+`-r 0 --selected-resn` でこの ML 領域を組む方法は、[ML 領域を小さくする](model-setup.md#ml-領域を小さくする) を見てください。同梱の PDB は chain の欄が空なので、残基は名前か番号で指定してください。
 
 ### 2. TS を DFT/MM で精密化する
 

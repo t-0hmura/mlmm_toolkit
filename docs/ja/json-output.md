@@ -8,7 +8,7 @@ ML/MM 計算機を使用するサブコマンドとレポート系サブコマ�
 
 ```bash
 mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q 0 -m 1 \
-  --max-cycles 5 --out-json --out-dir result_opt
+  --out-json --out-dir result_opt
 cat result_opt/result.json | python -m json.tool
 ```
 
@@ -84,7 +84,7 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 
 最適化が収束せずに終わった場合、`result.json` には `"optimization_status": "not_converged"` が記録されます。再実行の前に何を変えるかは、{ref}`トラブルシューティングの計算 / 収束 <ja-calculation--convergence>` を参照してください。
 
-オプティマイザは `"optimization_status": "stalled"` を返すこともあります。これは、力/ステップの収束基準を満たさないまま、設定した数の直近のサイクル（ウィンドウ）でエネルギーが下がらなくなった状態（エネルギープラトー）です。停滞は未収束の一種で、`converged` にはなりません。`stop_reason` にはエネルギーの範囲、ウィンドウ、満たせなかった基準が記録されます。`--flatten` を指定した `opt` と `tsopt` は、`--max-cycles` の残りがあれば、停滞の後も flatten ループを実行します。マイクロイテレーションでは、マクロステップと直近の MM 緩和の両方が収束したときだけ収束とみなします。MM 緩和が停滞しても、その時点で力が閾値を下回っていれば収束として扱います。
+オプティマイザは `"optimization_status": "stalled"` を返すこともあります。これは、力/ステップの収束基準を満たさないまま、設定した数の直近のサイクル（ウィンドウ）でエネルギーが下がらなくなった状態（エネルギープラトー）です。`stop_reason` にはエネルギーの範囲、ウィンドウ、満たせなかった基準が記録されます。
 
 ## サブコマンド別スキーマ
 
@@ -137,9 +137,9 @@ ML/MM 計算機を評価するコマンドは、さらに以下を記録しま�
 | `saddle_validation` | string | 最後の厳密な PHVA（部分 Hessian 振動解析）による `"first_order"` / `"higher_order"` / `"no_imaginary"` / `"unavailable"` |
 | `saddle_order_verified` | bool | `saddle_validation: "first_order"` の場合だけ `true` |
 | `hessian_status` | string | `"completed"` / `"failed"` / `"skipped"` / `"unavailable"`。失敗理由は `hessian_error` |
-| `reaction_mode_index` | int\|null | `all` が IRC でたどる、厳密な PHVA の負の固有値のモード。参照方向にそろったモードが無いときは 0 番を使ってその旨を記録し、反応のモードであることは確かめていません |
+| `reaction_mode_index` | int\|null | `all` が IRC でたどる虚振動モードの 0 始まりの番号。オプティマイザがたどったモードが虚振動ならそのモード、そうでなければ最も低い虚振動モード。虚振動が無いときは `null` |
 | `reaction_mode_frequency_cm` | float\|null | 選んだ負のモードの振動数 |
-| `reaction_mode_source` | string\|null | モードの選び方（参照方向にそろえたか、0 番の代用か） |
+| `reaction_mode_source` | string\|null | `"mep-reference-overlap"` か `"lowest-imaginary"` |
 | `energy_hartree` | float | TS エネルギー (Hartree) |
 | `n_imaginary_modes` | int\|null | 虚振動モードの数。PHVA を実行しなかった場合は `null` |
 | `n_negative_modes` | int\|null | 大きさを問わない負の振動数の数（閾値以内も含む）。`n_imaginary_modes` と並べて見る診断用の値で、PHVA を実行しなかった場合は `null` |
@@ -383,7 +383,7 @@ IRC は `execution_status` と `scientific_status` を出し、方向ごとの�
 |-----------|------|------|
 | `execution_status` / `scientific_status` | string / string | 実行の完了度と、指定した数値最適化・計算段階の完了度。 |
 | `scientific_status_reasons` | string[] | 要求した結果の欠損・未収束などの理由。正常終了時は省略されます。 |
-| `pipeline_stop` | object（無い場合あり） | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（最初に止まったセグメントの TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`、または `endpoint_not_converged`）。`summary.log` では `Pipeline stop`。ただし経路のセグメントの `before_irc` の停止は `Stopped before IRC`（`stopped_segments` を参照）と表示し、TS-only の停止は `stopped_segments` に入らない。`endpoint_not_converged` は `post_segments[].pipeline_stop` にだけ書く。そのセグメントの端点の最適化が収束しなかったので freq と DFT を行わず、ほかのセグメントは処理を続ける |
+| `pipeline_stop` | object（無い場合あり） | 早期停止時のみ存在。`stage` は `post`（`reason` は `no_segments` / `no_reactive_segment`）、`before_irc`（最初に止まったセグメントの TSOPT の理由と `segment`・`tsopt_result`）、または `endpoint_opt`（`endpoint_execution_failed` と端点別 `failures`、または `endpoint_not_converged`）。TS-only の停止は `stopped_segments` に入らない。`endpoint_not_converged` は `post_segments[].pipeline_stop` にだけ書く。そのセグメントの端点の最適化が収束しなかったので freq と DFT を行わず、ほかのセグメントは処理を続ける |
 | `stopped_segments` | object[]（無い場合あり） | IRC の前で止まったすべてのセグメント（`stage`・`segment`・`reason`）。ほかのセグメントは処理を続ける。`summary.log` では `Stopped before IRC` |
 | `expected_item_ids` / `observed_item_ids` | string[] | 期待された段と観測された段の ID。 |
 | `n_segments` | int | セグメント数 |

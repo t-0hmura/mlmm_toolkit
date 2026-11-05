@@ -11,7 +11,7 @@ same content, so read `result.json`.
 
 ```bash
 mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q 0 -m 1 \
-  --max-cycles 5 --out-json --out-dir result_opt
+  --out-json --out-dir result_opt
 cat result_opt/result.json | python -m json.tool
 ```
 
@@ -94,7 +94,7 @@ When an optimization ends without converging, `result.json` records
 `"optimization_status": "not_converged"`. For what to change before a retry,
 see {ref}`Troubleshooting › Calculation / convergence <calculation--convergence>`.
 
-An optimizer may also report `"optimization_status": "stalled"`: the energy stopped decreasing over the configured window (an energy plateau) while the force/step convergence criteria remained unmet. A stall is a kind of non-convergence, never `converged`; `stop_reason` records the energy range, the window, and the failed criteria. With `--flatten`, `opt` and `tsopt` still run the flatten loop after a stall while `--max-cycles` cycles remain. With microiteration, the run counts as converged only when both the macro step and the latest MM relaxation have converged; an MM relaxation that stalls with its forces already under the thresholds counts as converged.
+An optimizer may also report `"optimization_status": "stalled"`: the energy stopped decreasing over the configured window (an energy plateau) while the force/step convergence criteria remained unmet. `stop_reason` records the energy range, the window, and the failed criteria.
 
 ## Subcommand schemas
 
@@ -147,9 +147,9 @@ With microiteration, `final_max_force`, `final_rms_force`, `final_max_step`, and
 | `saddle_validation` | string | `"first_order"`, `"higher_order"`, `"no_imaginary"`, or `"unavailable"` from terminal exact PHVA (partial Hessian vibrational analysis) |
 | `saddle_order_verified` | bool | `true` only for `saddle_validation: "first_order"` |
 | `hessian_status` | string | `"completed"`, `"failed"`, `"skipped"`, or `"unavailable"`; `hessian_error` gives the failure reason |
-| `reaction_mode_index` | int\|null | Negative exact-PHVA root that `all` follows in IRC; when no reference-aligned root is available, root 0 is used and labeled as such, which does not confirm that it is the reaction mode |
+| `reaction_mode_index` | int\|null | 0-based index of the imaginary mode that `all` follows in IRC: the mode the optimizer followed when it is imaginary, otherwise the lowest imaginary mode; `null` when there is none |
 | `reaction_mode_frequency_cm` | float\|null | Frequency of the selected negative root |
-| `reaction_mode_source` | string\|null | How the root was selected (aligned with the reference direction, or the root-0 fallback) |
+| `reaction_mode_source` | string\|null | `"mep-reference-overlap"` or `"lowest-imaginary"` |
 | `energy_hartree` | float | TS energy (Hartree) |
 | `n_imaginary_modes` | int\|null | Number of imaginary frequencies; `null` if PHVA was not run |
 | `n_negative_modes` | int\|null | Number of negative frequencies of any size, including those within the cutoff; a diagnostic next to `n_imaginary_modes`, `null` if PHVA was not run |
@@ -409,7 +409,7 @@ The `all` and `path-search` commands write `summary.json` with a richer structur
 |-------|------|-------------|
 | `execution_status` / `scientific_status` | string / string | Execution completeness and completion of requested numerical/calculation stages. |
 | `scientific_status_reasons` | string[] | Reasons for missing or unusable requested results; omitted on success. |
-| `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`), `before_irc` (the first segment that stopped: a TSOPT reason, plus `segment` and `tsopt_result`), or `endpoint_opt` (`endpoint_execution_failed` with endpoint-specific `failures`, or `endpoint_not_converged`). Rendered in `summary.log` as `Pipeline stop`, except that a `before_irc` stop of a segment of a path is shown as `Stopped before IRC` (see `stopped_segments`); a TS-only stop is not in `stopped_segments`. `endpoint_not_converged` is written only in `post_segments[].pipeline_stop`: an endpoint optimization of that segment did not converge, so its freq and DFT were skipped, and the other segments are still processed. |
+| `pipeline_stop` | object \| absent | Present only on an early stop. `stage` is `post` (`reason` `no_segments` / `no_reactive_segment`), `before_irc` (the first segment that stopped: a TSOPT reason, plus `segment` and `tsopt_result`), or `endpoint_opt` (`endpoint_execution_failed` with endpoint-specific `failures`, or `endpoint_not_converged`). A TS-only stop is not in `stopped_segments`. `endpoint_not_converged` is written only in `post_segments[].pipeline_stop`: an endpoint optimization of that segment did not converge, so its freq and DFT were skipped, and the other segments are still processed. |
 | `stopped_segments` | object[] \| absent | Every segment that stopped before IRC (`stage`, `segment`, `reason`); the other segments are still processed. Rendered in `summary.log` as `Stopped before IRC`. |
 | `expected_item_ids` / `observed_item_ids` | string[] | Expected and observed stage identifiers. |
 | `n_segments` | int | Segment count |

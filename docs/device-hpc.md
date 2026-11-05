@@ -190,7 +190,7 @@ mlmm opt -i r_complex_layered.pdb --parm7 real.parm7 -q -1 --config config.yaml
 * **One GPU for ML inference**: with the default `--uma-workers 1`, ML inference runs on the one GPU set by `ml_cuda_idx`. For `--uma-workers` above 1, see [MLIP Backends › Workers and Hessian mode](backends.md#workers-and-hessian-mode).
 * **ML and MM on one GPU share its memory**: when both use CUDA on the same device, measure the peak memory on a representative test run, and use `mm_device: cpu` for a large system.
 * **`--hess-device cpu` does not prevent every out-of-memory error**: an out-of-memory error inside the backend while the Hessian is being evaluated happens before the Hessian is moved. Make the model smaller, or choose a Hessian or backend setting that uses less memory.
-* **C++ compiler on every compute node**: the default `hessian_ff` MM backend JIT-compiles C++ kernels on first use, independently of CUDA. Every compute node needs a C++20-capable compiler and Ninja (GCC 13.3 was validated); hessian_ff uses `$CXX` if set, else the env's conda `g++`, else `c++`; when that compiler is absent or too old, load a newer gcc (`module load`) or install `cuda-nvcc` and reactivate the environment. The job scripts above check both. UMA also builds code at run time and needs a C compiler (`gcc`, or `g++` on a CPU).
+* **C++ compiler on every compute node**: `hessian_ff` compiles its C++ kernels on first use, so every compute node needs a C++20 compiler and Ninja; the job scripts above check both.
 
 ---
 

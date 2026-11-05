@@ -29,7 +29,7 @@ mlmm all -i 1.R.pdb 3.P.pdb -c 'SAM,GPP,MG' -l 'SAM:1,GPP:-3' \
     -r 0 --selected-resn '44,63,186' --tsopt
 ```
 
-`-r 0` sets the extraction radius to 0 Å, which stops adding nearby residues by distance; the ML region is built from the `-c` and `--selected-resn` residues. In the bundled example in [`examples/beza/`](https://github.com/t-0hmura/mlmm_toolkit/tree/main/examples/beza), residues 44, 63, and 186 are the three closest to SAM's methyl carbon (CS1). The bundled PDB has an empty chain field; for such PDB files, give residues by name or number. For your own system, pick the residues that take part in the reaction.
+[Shrink the ML region](model-setup.md#shrink-the-ml-region) explains how `-r 0 --selected-resn` builds this ML region. The bundled PDB has an empty chain field; for such PDB files, give residues by name or number.
 
 ### 2. Refine the TS with DFT/MM
 

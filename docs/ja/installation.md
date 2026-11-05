@@ -47,7 +47,7 @@ ORB・AIMNet2・MACE・DFT の導入は {ref}`詳細なインストール手順 
 
 `pip install mlmm-toolkit` では、コンパイラと Chrome が使うライブラリは入りません。ワークステーションには通常ありますが、最小構成のコンテナや素のクラスターノードにはないことが多いです。
 
-- **コンパイラ:** GPU では、UMA は実行時に高速化のためコンパイルをします（PyTorch が Triton で GPU のカーネルを作ります）。そのため `--compile` を付けなくても C コンパイラ（`gcc`）が要ります。`--compile` を付けると UMA と ORB はモデルもコンパイルするので、GPU では C コンパイラ、CPU では C++ コンパイラ（`g++`）が要ります。`hessian_ff` には C++20 対応コンパイラが要ります。
+- **コンパイラ:** `hessian_ff` には C++20 対応のコンパイラ（`g++`）が要ります。GPU で UMA を使うときと、GPU で `--compile` を付けるときは、`gcc` も要ります。
 - **Chrome 用のライブラリ:** PNG・JPEG・SVG・PDF の図（`energy-diagram`、`trj2fig`、`all` の図）はヘッドレス Chrome で描きます。Chrome は `plotly_get_chrome -y` でダウンロードし、下の OS のライブラリを読み込みます。
 
 Ubuntu/Debian（Ubuntu 22.04 と Debian 12 では `libasound2t64` の代わりに `libasound2` と書きます。root なら `sudo` は不要）:
@@ -71,7 +71,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 
 既存のコンパイラを使います。gcc や CUDA が無い場合は、システムのものを読み込んでください（HPC では `module load` など）。システムに C コンパイラや CUDA が無い場合や使わない場合は、`conda install -c conda-forge cuda-nvcc` で両方を環境に入れられます（入れた後に環境を再度 activate してください）。HPC で Chrome のライブラリが足りない場合は管理者に依頼してください。
 
-コンパイラや CUDA が足りないときは、コマンドが止まり、`Missing system prerequisite:` に続けてこの 2 つの方法を表示します。Chrome のライブラリが足りないときは、`energy-diagram` と `trj2fig` は同じように止まり、`all`・`path-search`・`scan2d` は警告を出し、PNG の作成だけを省いて続けます。
+コンパイラや CUDA が足りないときは、コマンドが止まり、この 2 つの方法を表示します。
 
 (ja-step-by-step-installation)=
 ## 詳細なインストール手順
@@ -90,7 +90,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 
 2. **AmberTools と PyTorch を入れた conda 環境を作成**
 
-    システムの AmberTools のモジュールがあるクラスターでは、conda の AmberTools と衝突しないように、先に `module unload amber` を実行してください。PyTorch も同じコマンドで conda-forge から入ります（CUDA のビルドは手順 4 のとおりに選びます）。この環境に pip の PyTorch は入れないでください。xTB は、MLIP のバックエンドの `--embedcharge` の補正にだけ使います。
+    システムの AmberTools のモジュールがあるクラスターでは、conda の AmberTools と衝突しないように、先に `module unload amber` を実行してください。PyTorch も同じコマンドで conda-forge から入ります（CUDA のビルドは手順 4 のとおりに選びます）。この環境に pip の PyTorch は入れないでください。
 
     ```bash
     conda create -n <your-env> -c conda-forge python=3.12 ambertools=24.8 "numpy>=2,<2.5" pdbfixer cyipopt xtb "pytorch=2.13.0=cuda130*"
@@ -98,7 +98,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
     ```
 
 3. **cyipopt と pydmf（DMF）**
-    MEP 探索の DMF 法（`--mep-mode dmf`）には、手順 2 で入る cyipopt と、手順 5 で `mlmm-toolkit` と一緒に入る pydmf を使います。それでも `--mep-mode dmf` がインポートのエラーで止まるときは、{ref}`インストール / 環境の問題 <ja-installation-environment-problems>` を参照してください。
+    MEP 探索の DMF 法（`--mep-mode dmf`）には、手順 2 で入る cyipopt と、手順 5 で `mlmm-toolkit` と一緒に入る pydmf を使います。
 
 4. **PyTorch の CUDA ビルドを選ぶ**
 
@@ -115,7 +115,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 
     `hessian_ff` のカーネルは初回の使用時に自動でビルドされます。ビルドが失敗したときの手動の再ビルドは、{ref}`hessian_ff ビルドの問題 <ja-hessian_ff-build--import>` を参照してください。
 
-    aarch64 では、UMA が `fairchem-core` を通して読み込む `warp-lang` 1.18.0 の wheel が glibc 2.35 を必要とし、それより古いシステム（`ldd --version` で確認できます）では import が `GLIBC_2.35' not found` で止まります。その場合は `warp-lang==1.17.0` をインストールしてください（`nvalchemi-toolkit-ops` には 1.13.0 以上が必要です）。
+    aarch64 では、UMA が `fairchem-core` を通して読み込む `warp-lang` 1.18.0 の wheel が glibc 2.35 を必要とし、それより古いシステム（`ldd --version` で確認できます）では import が `GLIBC_2.35' not found` で止まります。その場合は `warp-lang==1.17.0` をインストールしてください。
 
 6. **Hugging Face Hub (UMA モデル) にログイン**
 
@@ -134,7 +134,7 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
 
     mlmm-toolkit はデフォルトで UMA を使用します。他のバックエンドは対応する追加パッケージを導入し、`-b/--backend`（例: `-b orb`）で選択します:
 
-    **ORB**: `orb-models` は `nvalchemi-toolkit-ops<0.4` に固定しているので、UMA の `fairchem-core` と競合します。下の MACE と同じく、手順 2〜6 で作った別の環境に入れ、UMA は元の環境で使います。ORB は Python 3.12 でだけ使えます（`orb-models` が固定する `dm-tree==0.1.8` に Python 3.13 用の wheel がないためです）。
+    **ORB**: `orb-models` は UMA の `fairchem-core` と競合するので、手順 2〜6 で作った Python 3.12 の別の環境に入れてください。
 
     ```bash
     pip uninstall fairchem-core && pip install orb-models
