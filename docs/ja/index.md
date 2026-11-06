@@ -105,11 +105,11 @@ orphan: true
 
 ## システム要件
 
-- **OS**: Linux（Windows では WSL2 上の Linux を推奨、Mac でも仮想環境を推奨）
-- **GPU**: 使用するバックエンドと PyTorch wheel に対応する NVIDIA ドライバー。CPU のみでも実行可能ですが低速です
-- **VRAM / RAM**: モデル、系の大きさ、Hessian の計算方式で変わります。代表的な計算で最大使用量を測ってください
-- Python 3.12（推奨）または 3.13
-- CPU 版または CUDA 対応の PyTorch。GPU での UMA は実行時に gcc と CUDA も必要です（標準的な HPC 環境には通常含まれています）。
+- **OS**: Linux（Windows では WSL2、Mac では Docker を推奨）
+- **Python**: 3.12（推奨）または 3.13。ORB は 3.12 が必要です
+- **PyTorch**: CUDA 版（推奨）または CPU 版
+- **GPU**: VRAM 8 GB 以上。CPU のみでも実行可能ですが低速です。対応する NVIDIA ドライバーが必要で、UMA は実行時に GCC と CUDA Toolkit も必要です
+- **RAM / VRAM**: デフォルトの UMA での一点計算は、約 3,400 原子（ML 領域は約 650 原子）と約 9,200 原子（ML 領域は約 600 原子）で RAM 8 GB・VRAM 8 GB、約 14,000 原子（ML 領域は約 370 原子）で RAM 16 GB・VRAM 8 GB が目安で、Hessian もほぼ同じです。RAM は全系、VRAM は ML 領域の大きさで増えます
 - AmberTools（`mm-parm` が Amber のトポロジーを作るのに使います）
 
 セットアップは [インストール](installation.md) を参照してください。

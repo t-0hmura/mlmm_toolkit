@@ -255,11 +255,11 @@ ja/architecture
 
 ## System requirements
 
-- **OS:** Linux (on Windows, WSL2 is recommended; on Mac, a virtual environment is recommended).
-- **GPU:** an NVIDIA driver compatible with the backend and PyTorch wheel. CPU execution is also supported but slower.
-- **VRAM / RAM:** depends on the model, the system size, and the Hessian mode; measure the peak on a representative run.
-- Python 3.12 (recommended) or 3.13.
-- CPU or CUDA-enabled PyTorch. UMA on a GPU also needs gcc and CUDA at run time (usually included in standard HPC environments).
+- **OS:** Linux (WSL2/Docker recommended on Windows/Mac).
+- **Python:** 3.12 (recommended) or 3.13. ORB requires 3.12.
+- **PyTorch:** CUDA (recommended) or CPU build.
+- **GPU:** at least 8 GB of VRAM. CPU execution is also supported but slower. Compatible NVIDIA driver. UMA also requires GCC and the CUDA Toolkit at runtime.
+- **RAM / VRAM:** with the default UMA model, a single point needs about 8 GB of RAM and 8 GB of VRAM for ~3,400 atoms (~650 in the ML region) and ~9,200 atoms (~600 in the ML region), and 16 GB of RAM and 8 GB of VRAM for ~14,000 atoms (~370 in the ML region); a Hessian needs about the same. RAM grows with the whole system and VRAM with the ML region.
 - AmberTools, which `mm-parm` uses to build the Amber topology.
 
 See [Installation](installation.md) for setup.
