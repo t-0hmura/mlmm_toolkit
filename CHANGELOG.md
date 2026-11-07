@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-11-08
+
+### Breaking changes
+
+- Select the highest-energy internal local peak in each trajectory interval as the HEI, even when an endpoint has higher energy.
+- Calculate MEP barriers relative to the preceding local minimum (basin), using the starting structure when no preceding minimum exists. Paths without an internal peak report a `null` barrier and do not proceed to TS optimization.
+
+### Fixed
+
+- Reduce interpolation overshoot in fully grown GSM strings with `--gsm-param energy` using centripetal Catmull–Rom interpolation.
+
+### Added
+
+- Suggest rerunning MEP searches with `--max-nodes 50` or higher when TS optimization ends with `n_imag=0`.
+- Recommend `search.refine_mode: minima` with `--refine-path` and `--gsm-param energy`, and warn that combining these options with `peak` may cause endpoint optimization during refinement to fail.
+- Report IRC endpoint optimization time separately.
+
 ## [0.6.0] — 2026-11-06
 
 ### Breaking changes

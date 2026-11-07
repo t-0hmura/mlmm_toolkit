@@ -762,7 +762,7 @@ def test_colab_setup_installs_missing_cyipopt(monkeypatch) -> None:
     monkeypatch.setattr(
         importlib.metadata,
         "version",
-        lambda name: "0.6.0" if name == "mlmm-toolkit" else "test",
+        lambda name: "0.7.0" if name == "mlmm-toolkit" else "test",
     )
     monkeypatch.setattr(os.path, "isdir", fake_isdir)
 
@@ -828,7 +828,7 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     versions = {
         "pyscf": "2.11.0",
         "gpu4pyscf-cuda13x": "1.5.2",
-        "mlmm-toolkit": "0.6.0",
+        "mlmm-toolkit": "0.7.0",
     }
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(subprocess, "Popen", _FakePopen)
@@ -841,8 +841,8 @@ def test_colab_setup_dft_branch_installs_extra_and_checks_gpu(monkeypatch, capsy
     installs = [argv for argv in calls if "install" in argv]
     # One pinned install carries the extra, so the DFT branch differs from the
     # plain branch only by the `[dft]` marker on the same requested version.
-    assert any("mlmm-toolkit[dft]==0.6.0" in argv for argv in installs)
-    assert not any("mlmm-toolkit==0.6.0" in argv for argv in installs)
+    assert any("mlmm-toolkit[dft]==0.7.0" in argv for argv in installs)
+    assert not any("mlmm-toolkit==0.7.0" in argv for argv in installs)
     assert popen_calls == []          # no streamed pip log, only the announcement
     logged = capsys.readouterr().out
     assert "install_dft is ticked" in logged
@@ -915,7 +915,7 @@ def test_colab_setup_install_xtb_puts_xtb_from_conda_forge_on_path(
     monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
     monkeypatch.setattr(importlib, "import_module",
                         lambda name: fake_openmm if name == "openmm" else real_import_module(name))
-    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.6.0" if name == "mlmm-toolkit" else "test")
+    monkeypatch.setattr(importlib.metadata, "version", lambda name: "0.7.0" if name == "mlmm-toolkit" else "test")
     namespace: dict = {}
     exec(compile(setup, str(NOTEBOOK), "exec"), namespace)
 
@@ -966,7 +966,7 @@ def test_colab_setup_operates_orb_and_uma_branches(
     monkeypatch.setattr(
         importlib.metadata,
         "version",
-        lambda name: "0.6.0" if name == "mlmm-toolkit" else "test",
+        lambda name: "0.7.0" if name == "mlmm-toolkit" else "test",
     )
     monkeypatch.delenv("HF_TOKEN", raising=False)
     if use_token:
@@ -1015,7 +1015,7 @@ def test_colab_setup_handles_cancelled_uma_sign_in(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         importlib.metadata,
         "version",
-        lambda name: "0.6.0" if name == "mlmm-toolkit" else "test",
+        lambda name: "0.7.0" if name == "mlmm-toolkit" else "test",
     )
     monkeypatch.delenv("HF_TOKEN", raising=False)
 
@@ -1038,25 +1038,25 @@ def test_colab_setup_explains_unavailable_release(monkeypatch) -> None:
 
     def fake_run(argv, **_kwargs):
         command = [str(value) for value in argv]
-        failed = any(value == "mlmm-toolkit==0.6.0" for value in command)
+        failed = any(value == "mlmm-toolkit==0.7.0" for value in command)
         return types.SimpleNamespace(stdout="GPU 0", stderr="", returncode=1 if failed else 0)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
-    monkeypatch.setattr(importlib.metadata, "version", lambda _name: "0.6.0")
+    monkeypatch.setattr(importlib.metadata, "version", lambda _name: "0.7.0")
 
     with pytest.raises(RuntimeError) as error:
         exec(compile(setup, str(NOTEBOOK), "exec"), {})
 
     message = str(error.value)
-    assert "Could not install mlmm-toolkit==0.6.0 from PyPI" in message
-    assert "version v0.6.0 may not be published" in message
+    assert "Could not install mlmm-toolkit==0.7.0 from PyPI" in message
+    assert "version v0.7.0 may not be published" in message
     assert "mlmm-toolkit-src.zip pair, then enter debug" in message
 
 
 def test_colab_setup_explains_missing_debug_zip(monkeypatch, tmp_path) -> None:
     setup = _notebook()["cells"][1]["source"].replace(
-        'mlmm_toolkit_version = "v0.6.0"', 'mlmm_toolkit_version = "debug"', 1,
+        'mlmm_toolkit_version = "v0.7.0"', 'mlmm_toolkit_version = "debug"', 1,
     ).replace("install_dft = True", "install_dft = False", 1)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
@@ -1073,7 +1073,7 @@ def test_colab_setup_explains_missing_debug_zip(monkeypatch, tmp_path) -> None:
     message = str(error.value)
     assert "Debug mode needs the adjacent source ZIP" in message
     assert "mlmm-toolkit-src.zip" in message
-    assert "enter v0.6.0 for a published release install" in message
+    assert "enter v0.7.0 for a published release install" in message
 
 
 def test_colab_gui_is_mlmm_native_and_tracks_structure_contracts() -> None:
@@ -5205,7 +5205,7 @@ def test_colab_uma_login_accepts_a_colab_secret(monkeypatch, tmp_path, hub_token
     monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
     monkeypatch.setattr(
         importlib.metadata, "version",
-        lambda name: "0.6.0" if name == "mlmm-toolkit" else "test",
+        lambda name: "0.7.0" if name == "mlmm-toolkit" else "test",
     )
     monkeypatch.delenv("HF_TOKEN", raising=False)
 
@@ -5248,7 +5248,7 @@ def test_colab_uma_login_reads_the_runtime_token_before_the_secret(monkeypatch, 
     monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
     monkeypatch.setattr(
         importlib.metadata, "version",
-        lambda name: "0.6.0" if name == "mlmm-toolkit" else "test",
+        lambda name: "0.7.0" if name == "mlmm-toolkit" else "test",
     )
     monkeypatch.delenv("HF_TOKEN", raising=False)
 
