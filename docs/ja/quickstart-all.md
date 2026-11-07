@@ -9,7 +9,7 @@
 ## 主な用途
 
 * **全工程を初めて通す**: 同梱例で、すべての段を 1 回実行
-* **R と P の間の MEP を作る**: 経路と、その最高エネルギーのイメージ（HEI、TS の候補）を取得
+* **R と P の間の MEP を作る**: 経路と、選択した構造（HEI、TS の候補）を取得
 * **同じ実行で TS・IRC・振動数・DFT まで進める**: `--tsopt --thermo --dft` を付けて TS の候補を確認
 
 ## 最小コマンド
@@ -54,7 +54,7 @@ result_all/
 ├── layered/                     # 3 つの層を B-factor に書いた 1.R_layered.pdb と 3.P_layered.pdb
 └── _work/                       # 途中のファイル（TS 候補の HEI を含む。実行後も残る）
     └── path_opt/                # MEP 探索（MEP を再帰的に精密化する --refine-path のときは path_search/）
-        ├── hei_seg_01.{xyz,pdb} # セグメント 1 の最高エネルギーのイメージ
+        ├── hei_seg_01.{xyz,pdb} # セグメント 1 のTS候補の構造
         └── summary.json         # MEP 探索の結果
 ```
 

@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.interpolate import splprep, splev
+from scipy.interpolate import CubicHermiteSpline, splprep, splev
 
 from pysisyphus.constants import AU2KCALPERMOL
 from pysisyphus.intcoords.exceptions import (
@@ -305,6 +305,31 @@ class GrowingString(GrowingChainOfStates):
         return tcks, us
 
     def reparam_cart(self, desired_param_density):
+        if self.param == "energy" and self.fully_grown:
+            old = self.coords.reshape(len(self.images), -1).copy()
+            density = self.get_cur_param_density(kind="energy")
+            if density is None:
+                density = self.get_cur_param_density()
+            target = np.array(desired_param_density, dtype=float, copy=True)
+            anchors = sorted(set([0, len(old) - 1] + list(self.get_climbing_indices())))
+            target = np.interp(target, target[anchors], density[anchors])
+            lengths = np.linalg.norm(np.diff(old, axis=0), axis=1)
+            if np.any(lengths <= 0):
+                raise ValueError("Cannot interpolate coincident adjacent string images.")
+            knots = np.r_[0.0, np.cumsum(np.sqrt(lengths))]
+            intervals = np.diff(knots)
+            secants = np.diff(old, axis=0) / intervals[:, None]
+            slopes = np.empty_like(old)
+            slopes[0], slopes[-1] = secants[0], secants[-1]
+            slopes[1:-1] = (
+                intervals[1:, None] * secants[:-1]
+                + intervals[:-1, None] * secants[1:]
+            ) / (intervals[1:] + intervals[:-1])[:, None]
+            spline = CubicHermiteSpline(knots, old, slopes)
+            new_points = spline(np.interp(target, density, knots))
+            new_points[anchors] = old[anchors]
+            self.coords = new_points.flatten()
+            return
         tcks, us = self.spline()
         # Reparametrize mesh
         new_points = np.vstack([splev(desired_param_density, tck) for tck in tcks])

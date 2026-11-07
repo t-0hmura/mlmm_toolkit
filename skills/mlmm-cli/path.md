@@ -1,7 +1,7 @@
 # `mlmm path-opt` and `mlmm path-search`
 
 Find a minimum-energy path (MEP) between layered full-system structures with
-GSM (default) or DMF, and write its highest-energy image (HEI) as a TS
+GSM (default) or DMF, and write its selected structure (HEI) as a TS
 candidate. Run `mlmm path-opt -i R.pdb P.pdb --parm7 real.parm7 -q 0 -m 1` or
 `mlmm path-search -i R.pdb IM.pdb P.pdb --parm7 real.parm7 -q 0 -m 1`.
 Success is `hei.xyz` (path-opt) or one `hei_seg_NN.xyz` per reactive segment
@@ -50,11 +50,11 @@ recursion, and `0` turns it off.
 TS candidate was written. With `--out-json`, `result.json` has `converged`,
 `scientific_status` (`success` when the endpoint pre-optimization and the
 MEP converged, otherwise `partial` or `failed`), `image_energies_hartree`,
-`barrier_kcal` (HEI relative to the first image), `hei_index`, and
+`barrier_kcal` (selected peak minus its nearest preceding basin; `null` without an internal peak), `hei_index`, and
 `n_images`. Files: `final_geometries_trj.xyz` (final string, energies on the
 comment lines), `final_geometries.pdb`, `hei.xyz`, and `hei.pdb`. A HEI with
 `hei_index` between 1 and `n_images − 2` is a TS candidate; at an endpoint,
-no image lies above the higher endpoint and there is no candidate.
+there is no internal local peak and no TS candidate.
 
 **path-search.** `summary.json` and `summary.log` are always written (no
 `--out-json`); read `[2] Segment-level MEP summary` in the log.
@@ -79,8 +79,8 @@ Files: `mep_trj.xyz` and `mep_trj.pdb` (the stitched MEP), `mep_plot.png`,
   `_maxdepth`) or give intermediates.
 - Only `_kink` tags: no bond change was found between the ends. Check the
   inputs or give intermediates.
-- The warning `HEI is at an endpoint`: in that interval no image lies above
-  the higher end, so, as for `path-opt` above, there is no TS candidate.
+- The warning `HEI is at an endpoint`: that interval has no internal local
+  peak, so, as for `path-opt` above, there is no TS candidate.
   `path-search` returns the interval as a raw path with no `segments` entry
   or `hei_seg_NN.xyz`, adds `endpoint_hei` to `scientific_status_reasons`,
   and `all` (with or without `--refine-path`) runs no TS optimization on it.

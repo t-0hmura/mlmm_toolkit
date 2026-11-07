@@ -6,7 +6,7 @@ TS-only mode checks one transition-state (TS) candidate without a minimum energy
 
 ## What it is for
 
-* **Refining a candidate from a scan or an MEP**: optimize the top of a scan or the highest-energy image (HEI) of an MEP into a TS.
+* **Refining a candidate from a scan or an MEP**: optimize the top of a scan or the selected structure (HEI) of an MEP into a TS.
 * **Checking a candidate made another way**: confirm that a structure from another program, or one built by hand, is a TS (n_imag = 1) that connects the intended R and P.
 * **Checking an MLIP TS before DFT**: confirm a TS from the machine-learning interatomic potential (MLIP) before you refine it with [DFT/MM](dft-backend.md).
 

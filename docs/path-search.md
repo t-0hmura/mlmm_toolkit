@@ -8,7 +8,7 @@
 
 * **Splitting R → P into reactive segments**: when you do not know whether the reaction has one step or several, find the regions where bonds change.
 * **A multistep path through intermediates**: give known intermediates between R and P and get one stitched path.
-* **TS candidates per segment**: each reactive segment gets its own HEI (highest-energy image), `hei_seg_NN.xyz`, to optimize with [`tsopt`](tsopt.md).
+* **TS candidates per segment**: each reactive segment gets its own HEI (the structure at the highest local peak), `hei_seg_NN.xyz`, to optimize with [`tsopt`](tsopt.md).
 
 The ML region is computed with **UMA** (Meta) by default, and the rest of the system is computed with the Amber force field of `--parm7`. For exactly two endpoints without recursive refinement, [`path-opt`](path-opt.md) is simpler.
 
@@ -52,7 +52,7 @@ mlmm path-search -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_r
 Before the search, each input is pre-optimized (`--preopt`) and aligned to the one before it (`--align`), both by default, with frozen atoms matched step by step while the other atoms relax.
 
 1. **A coarse MEP for each pair**:
-Between each pair of adjacent inputs (A → B), GSM or DMF builds a coarse MEP and finds its HEI.
+Between each pair of adjacent inputs (A → B), GSM or DMF builds a coarse MEP and finds its HEI. The MEP barrier of a selected peak is $E_{\mathrm{peak}}-E_{\mathrm{basin}}$, measured from its nearest preceding local minimum. A higher endpoint does not exclude an internal peak.
 2. **Relaxing around the HEI**:
 `--refine-mode peak` optimizes the images on either side of the HEI (HEI ± 1); `minima` searches outward from the HEI for the nearest local minimum on each side. The result is two nearby minima, End1 and End2. When `--refine-mode` is omitted, GSM uses `peak` and DMF uses `minima`.
 3. **Kink or reactive segment**:

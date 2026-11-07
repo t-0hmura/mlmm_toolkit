@@ -6,7 +6,7 @@
 
 ## What it is for
 
-* **Refining a TS candidate**: turn the highest-energy image (HEI) of [`path-opt`](path-opt.md) / [`path-search`](path-search.md), or the top of a [`scan`](scan.md), into an optimized TS.
+* **Refining a TS candidate**: turn the selected structure (HEI) of [`path-opt`](path-opt.md) / [`path-search`](path-search.md), or the top of a [`scan`](scan.md), into an optimized TS.
 * **Checking a structure you built**: confirm that a hand-made candidate is a TS (n_imag = 1) and watch its reaction mode as an animation.
 * **Rerunning the TS step of `all`**: optimize the TS of an [`all`](all.md) run again on its own, with different settings.
 

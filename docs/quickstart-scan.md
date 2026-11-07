@@ -104,7 +104,7 @@ These commands stop after the MEP search and do not create `segments/`. Add `--t
 
 1. **Completion**: `scientific_status` is `success` when every requested stage converged; otherwise it is `partial` or `failed`, with the [reasons](json-output.md#execution-and-requested-stage-completion) in `scientific_status_reasons`. With `--tsopt`, two checks are left for you: that the imaginary mode moves the bonds that form or break, and that the endpoints are the intended R and P.
 2. **Scan**: open `_work/scan/stage_01/scan_trj.xyz` in a viewer and check that the distances change as intended. At the end of each stage the console prints `[stage 1] Covalent-bond changes (start vs final): Yes` or `No`, and `_work/scan/result.json` records it in `stages[].bond_changes`.
-3. **MEP**: open `mep_trj.pdb` and `_work/path_opt/hei_seg_01.pdb`, the highest-energy image (HEI) and TS candidate, and check that `energy_diagram_MEP.png` shows a clear barrier.
+3. **MEP**: open `mep_trj.pdb` and `_work/path_opt/hei_seg_01.pdb`, the selected structure (HEI) and TS candidate, and check that `energy_diagram_MEP.png` shows a clear barrier.
 4. **TS (with `--tsopt`)**: a successful TS optimization gives one imaginary mode along the reaction coordinate. The console then prints `[microiter] Converged!` and then `[Imaginary modes] n=1 (...)`. Open `segments/seg_01/ts/vib/imag_*_trj.xyz` in a viewer and check that the mode moves the bonds that form or break.
 5. **Endpoints (with `--tsopt`)**: open `segments/seg_01/irc/finished_irc_trj.xyz` and the optimized endpoints `segments/seg_01/reactant.pdb` and `product.pdb`, and check that they are the intended R and P. Even if the IRC does not converge, the result is usable when the endpoint optimizations reach the intended R and P.
 

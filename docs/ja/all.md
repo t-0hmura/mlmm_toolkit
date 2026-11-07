@@ -2,7 +2,7 @@
 
 `all` サブコマンドは、活性部位のまわりの ML 領域の選択、全系の Amber トポロジーと 3 層の作成、最小エネルギー経路（MEP）の探索を 1 回の実行で行います。指定すれば、各反応段の遷移状態（TS）の最適化と、固有反応座標（IRC）・振動数・DFT の計算まで行います。
 
-`--tsopt` を付けない場合は、TS 候補（各 MEP セグメントで最もエネルギーの高い点、HEI）までで終わります。ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta が公開した学習済みの[機械学習原子間ポテンシャル（MLIP）](backends.md)）のほか、`-b/--backend` オプションで **ORB**、**MACE**、**AIMNet2**、[DFT](dft-backend.md)（`dft`）も選択可能です。酵素の残りの部分は Amber 力場で計算し、両者を ONIOM で合わせます。
+`--tsopt` を付けない場合は、TS 候補（トラジェクトリの各区間における局所ピークのうち、最もエネルギーの高い構造、HEI）までで終わります。ML 領域の計算バックエンドにはデフォルトの **UMA**（Meta が公開した学習済みの[機械学習原子間ポテンシャル（MLIP）](backends.md)）のほか、`-b/--backend` オプションで **ORB**、**MACE**、**AIMNet2**、[DFT](dft-backend.md)（`dft`）も選択可能です。酵素の残りの部分は Amber 力場で計算し、両者を ONIOM で合わせます。
 
 ---
 
@@ -119,11 +119,11 @@ IRC が収束しなくても、端点の最適化で狙った R と P に着け�
 * **端末**: 虚振動が 1 つの TS では、`[Imaginary modes] n=1 (...)` に虚振動数が出ます。`====== Pipeline summary ======` の下に `Execution status:` と `Scientific status:` が出ます。結果が `success` でないときは、`RESULT WARNING:` の行に理由が出ます。
 * **`summary.log`**: ヘッダーに `Pipeline mode`（`MEP`、`Scan`、`TS-only`）と 2 つのステータスが出ます。[1] は MEP の概要、[2] は各セグメントの MEP 上の障壁 ΔE‡・反応エネルギー ΔE・結合の変化、[3] は各セグメントの後処理で、`TS imaginary freq:` の下に n_imag が出ます。[4] はエネルギー図の表、[5] は出力のツリーです。
 * **`summary.json`**: `scientific_status` には、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、理由は `scientific_status_reasons` に出ます。各 TS の n_imag は `post_segments[].tsopt.n_imaginary_modes` です。ステータスの欄の説明は [実行の完了と指定した段の完了](json-output.md#実行の完了と指定した段の完了) にあります。
-  * **障壁**: `--tsopt` のとき、各セグメントの障壁は、最適化した TS と R の ML/MM のエネルギーの差で、`post_segments[].mlip.barrier_kcal` に入ります。`--thermo` と `--dft` のときは、ほかの手法の障壁が同じ形で `gibbs_mlip`・`dft`・`gibbs_dft_mlip` に入ります。`segments[].barrier_kcal` は TS 最適化の前の MEP 上の障壁です。TS-only モードでは TS − R です。
+  * **障壁**: `--tsopt` のとき、各セグメントの障壁は、最適化した TS と R の ML/MM のエネルギーの差で、`post_segments[].mlip.barrier_kcal` に入ります。`--thermo` と `--dft` のときは、ほかの手法の障壁が同じ形で `gibbs_mlip`・`dft`・`gibbs_dft_mlip` に入ります。`segments[].barrier_kcal` は TS 最適化の前の MEP 上の局所ピークと、その直前の局所極小（basin）のエネルギー差です。TS-only モードでは TS − R です。
 
 端点が狙った R と P かは自分で確かめてください。`summary.log` の [2] の結合の変化と、`segments/seg_NN/reactant.*`・`product.*` の構造を、狙った R と P と比べます。n_imag が 1 でないときや、IRC の端点が狙いと違うときは {ref}`TS が得られないとき <ja-ts-search-fails>` を参照してください。
 
-2 つの入力間の MEP で最高エネルギーのイメージ（HEI）が端のイメージだった場合、`all` はその区間を作らず（障壁も TS 最適化も出しません）、`HEI is at an endpoint` と表示します。結果は `partial` か `failed` で、理由は `endpoint_hei` です。入力を見直すか中間体を加えてください。
+2 つの入力間の MEP に内部の局所ピークがない場合、`all` はその区間を作らず（障壁も TS 最適化も出しません）、`HEI is at an endpoint` と表示します。結果は `partial` か `failed` で、理由は `endpoint_hei` です。入力を見直すか中間体を加えてください。
 
 ---
 
@@ -181,7 +181,7 @@ result_all/
 
 図のエネルギーは、最初の状態（反応物）を基準にした kcal/mol です。
 
-図の TS ラベル（TS1、TS2、…）の番号は、そのセグメント `seg_NN` の番号です。TS 最適化を行わない区間も番号を取るので、TS の番号は飛ぶことがあります（たとえば TS1 の次が TS3）。`--refine-path` を付けたときは結合が変わらない[ブリッジと配座変化の区間（kink）](path-search.md#処理の仕組みと計算仕様)が、付けないときは MEP の最高エネルギーのイメージが端のイメージになった入力の組が、これに当たります。結合の変わらない区間にも虚振動 1 つの TS が要るときは、そのセグメントの最初と最後のフレーム（`summary.json` の `frame_start` と `frame_stop - 1`。0 始まりで、共有する始点が前のセグメントに属するときは `frame_start - 1`）を `mep_trj.xyz` から {ref}`取り出し <ja-trajectory-one-frame>`、`--refine-path` を付けずに `all --tsopt` にかけてください。
+図の TS ラベル（TS1、TS2、…）の番号は、そのセグメント `seg_NN` の番号です。TS 最適化を行わない区間も番号を取るので、TS の番号は飛ぶことがあります（たとえば TS1 の次が TS3）。`--refine-path` を付けたときは結合が変わらない[ブリッジと配座変化の区間（kink）](path-search.md#処理の仕組みと計算仕様)が、付けないときは MEP の内部に局所ピークがない入力の組が、これに当たります。結合の変わらない区間にも虚振動 1 つの TS が要るときは、そのセグメントの最初と最後のフレーム（`summary.json` の `frame_start` と `frame_stop - 1`。0 始まりで、共有する始点が前のセグメントに属するときは `frame_start - 1`）を `mep_trj.xyz` から {ref}`取り出し <ja-trajectory-one-frame>`、`--refine-path` を付けずに `all --tsopt` にかけてください。
 
 ---
 

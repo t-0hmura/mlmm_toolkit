@@ -95,7 +95,7 @@ result_scan/
     │   ├── stage_02/            # スキャンの段 2（2 段の実行）
     │   └── result.json          # 各段のスキャンの結果
     └── path_opt/                # MEP 探索（MEP を再帰的に精密化する --refine-path のときは path_search/）
-        └── hei_seg_01.{xyz,pdb} # セグメント 1 の最高エネルギーのイメージ
+        └── hei_seg_01.{xyz,pdb} # セグメント 1 のTS候補の構造
 ```
 
 これらのコマンドは MEP 探索で終わるため、`segments/` は作られません。`--tsopt` を付けると、反応セグメントごとに `segments/seg_NN/` に R/TS/P の構造と IRC が入り、`--thermo` を付けると `freq/` も加わります。
@@ -104,7 +104,7 @@ result_scan/
 
 1. **完了状況**: `scientific_status` には、指定した段がすべて収束すると `success`、そうでなければ `partial` か `failed` が入り、[理由](json-output.md#実行の完了と指定した段の完了)は `scientific_status_reasons` に出ます。`--tsopt` のとき、虚振動のモードが、できる結合と切れる結合を動かしているかと、端点が狙った R と P かの 2 点は自分で確かめてください。
 2. **スキャン**: `_work/scan/stage_01/scan_trj.xyz` をビューアで開き、距離が狙いどおりに変わるかを確かめます。各段の終わりに端末に `[stage 1] Covalent-bond changes (start vs final): Yes` か `No` が出て、`_work/scan/result.json` の `stages[].bond_changes` に記録されます。
-3. **MEP**: `mep_trj.pdb` と、最高エネルギーのイメージ（HEI、TS の候補）`_work/path_opt/hei_seg_01.pdb` を開き、`energy_diagram_MEP.png` にはっきりした障壁があるかを確かめます。
+3. **MEP**: `mep_trj.pdb` と、選択した構造（HEI、TS の候補）`_work/path_opt/hei_seg_01.pdb` を開き、`energy_diagram_MEP.png` にはっきりした障壁があるかを確かめます。
 4. **TS（`--tsopt` のとき）**: TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。このとき端末に `[microiter] Converged!` が出て、続いて `[Imaginary modes] n=1 (...)` が出ます。`segments/seg_01/ts/vib/imag_*_trj.xyz` をビューアで開き、できる結合と切れる結合に沿って原子が動くかを確認してください。
 5. **端点（`--tsopt` のとき）**: `segments/seg_01/irc/finished_irc_trj.xyz` と、最適化した端点の `segments/seg_01/reactant.pdb`・`product.pdb` を開き、狙った R と P かを確かめます。IRC が収束しなくても、端点の最適化で狙った R と P に着けば、その結果は使えます。
 

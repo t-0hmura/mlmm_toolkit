@@ -1,8 +1,6 @@
-"""``all`` with the path-opt MEP engine and an endpoint HEI: no barrier, no TS dispatch.
+"""``all`` selects an internal MEP peak and measures its preceding-basin barrier.
 
-The child/workspace fixtures follow test_all_tsopt_bond_diagnostic.py. path-search
-builds no segment for an interval whose highest image is an endpoint; the path-opt
-branch of ``all`` has to apply the same rule.
+Profiles without an internal peak must produce no barrier or TS dispatch.
 """
 
 from __future__ import annotations
@@ -32,14 +30,16 @@ def _frame(index, energy):
 
 
 @pytest.mark.parametrize(
-    "energies,hei",
+    "energies,hei,barrier_au",
     [
-        pytest.param((0.0, 0.1, 0.02), 1, id="interior-hei-control"),
-        pytest.param((0.1, 0.05, 0.0), 0, id="reactant-end-hei"),
-        pytest.param((0.0, 0.05, 0.1), 2, id="product-end-hei"),
+        pytest.param((0.0, 0.1, 0.02), 1, 0.1, id="interior-hei-control"),
+        pytest.param((0.1, 0.05, 0.0), 0, None, id="reactant-end-hei"),
+        pytest.param((0.0, 0.05, 0.1), 2, None, id="product-end-hei"),
+        pytest.param((0.0, 0.1, 0.02, 0.15), 1, 0.1, id="peak-below-product"),
+        pytest.param((0.04, 0.0, 0.1, 0.02, 0.15), 2, 0.1, id="preceding-basin"),
     ],
 )
-def test_path_opt_branch_builds_no_segment_for_an_endpoint_hei(tmp_path, monkeypatch, energies, hei):
+def test_path_opt_branch_builds_no_segment_for_an_endpoint_hei(tmp_path, monkeypatch, energies, hei, barrier_au):
     monkeypatch.delenv(MLMM_RUN_ID_ENV, raising=False)
     monkeypatch.setattr(utils, "_CONVERT_FILES_ENABLED", True)
     out = tmp_path / "out"
@@ -93,15 +93,18 @@ def test_path_opt_branch_builds_no_segment_for_an_endpoint_hei(tmp_path, monkeyp
              "--out-dir", str(out), "--no-preopt", "--convert-files",
              "--no-tsopt-from-mep-tan", "--tsopt"]
 
-    if hei == 1:
+    if 0 < hei < len(energies) - 1:
         with pytest.raises(ReachedTSDispatch):
             CliRunner().invoke(root_cli, args, catch_exceptions=False)
         assert len(ts_calls) == 1 and ts_calls[0].stem == "hei_seg_01"
         summary = json.loads((out / "_work/path_opt/summary.json").read_text())
         segment, = summary["segments"]
+        from pysisyphus.constants import AU2KCALPERMOL
+        assert segment["barrier_kcal"] == pytest.approx(barrier_au * AU2KCALPERMOL)
         assert segment["index"] == 1 and "stage_outcomes" not in summary
         diagram, = summary["energy_diagrams"]
         assert diagram["labels"] == ["R", "TS1", "P"]
+        assert diagram["energies_au"] == pytest.approx([energies[0], energies[hei], energies[-1]])
         return
 
     # The interval is not a reaction step, so the run ends as a failed result.

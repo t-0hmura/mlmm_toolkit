@@ -15,13 +15,47 @@ from pysisyphus.constants import AU2KCALPERMOL
     ("energies", "expected"),
     [
         ([0.0, 1.0, 2.0], 2),
-        ([0.0, 2.0, 1.0, 3.0], 3),
+        ([0.0, 2.0, 1.0, 3.0], 1),
         ([3.0, 2.0, 1.0], 0),
         ([0.0, 3.0, 1.0], 1),
     ],
 )
-def test_hei_is_the_global_energy_maximum(selector, energies, expected):
+def test_hei_prefers_a_local_peak_over_higher_endpoints(selector, energies, expected):
     assert selector(energies) == expected
+
+
+@pytest.mark.parametrize("drop_shared_start", [False, True])
+def test_segment_peak_survives_stitching_a_shared_first_frame(drop_shared_start):
+    from mlmm.workflows.path_search import SegmentReport, _segment_hei_index
+
+    images = [SimpleNamespace() for _ in range(4)]
+    energies = [0.0, 2.0, 1.0, 3.0]
+    report = SegmentReport("rxn", 2.0, 3.0, "Bond formed", peak_image=images[1])
+    start = int(drop_shared_start)
+    assert _segment_hei_index(images[start:], energies[start:], report) == 1 - start
+    assert report.barrier_kcal == 2.0
+
+
+def test_monotone_bridge_does_not_overwrite_a_reactive_segment_barrier(tmp_path, monkeypatch):
+    from mlmm.workflows import path_search
+
+    left = SimpleNamespace(coords3d=np.zeros((1, 3)))
+    right = SimpleNamespace(coords3d=np.ones((1, 3)))
+    bridge_images = [left, SimpleNamespace(coords3d=np.full((1, 3), 0.5)), right]
+    bridge = SimpleNamespace(images=bridge_images, energies=[0.0, 1.0, 2.0], hei_idx=2, is_converged=True)
+    monkeypatch.setattr(path_search, "_run_mep_between", lambda *_a, **_k: bridge)
+    report = path_search.SegmentReport("rxn", 5.0, -1.0, "Bond formed")
+    reports = [report]
+    path_search._stitch_paths(
+        [([left], [0.0]), ([right], [2.0])],
+        stitch_rmsd_thresh=1e-6, bridge_rmsd_thresh=1e-6,
+        shared_calc=None, gs_cfg={}, stopt_cfg={}, out_dir=tmp_path,
+        tag="pair", ref_pdb_path=None, segments_out=reports,
+    )
+    assert report.barrier_kcal == 5.0
+    assert len(reports) == 2
+    assert reports[1].kind == "bridge" and reports[1].barrier_kcal is None
+    assert reports[1].peak_image is right
 
 
 @pytest.mark.parametrize("selector", [select_path_opt_hei, select_path_search_hei])

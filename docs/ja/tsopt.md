@@ -6,7 +6,7 @@
 
 ## 主な用途
 
-* **TS 候補の仕上げ**: [`path-opt`](path-opt.md) / [`path-search`](path-search.md) の最高エネルギーのイメージ（HEI）や [`scan`](scan.md) の頂点を、最適化した TS に仕上げる
+* **TS 候補の仕上げ**: [`path-opt`](path-opt.md) / [`path-search`](path-search.md) の選択した構造（HEI）や [`scan`](scan.md) の頂点を、最適化した TS に仕上げる
 * **自作の構造の検証**: 手で作った候補が TS か（n_imag = 1）を確かめ、反応モードをアニメーションで確認する
 * **`all` の TS 段のやり直し**: [`all`](all.md) で得た TS を、設定を変えて単独で最適化し直す
 

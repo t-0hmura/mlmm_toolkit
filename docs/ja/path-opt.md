@@ -1,6 +1,6 @@
 # `path-opt`（2 構造間の MEP 探索）
 
-`path-opt` は、反応物と生成物の 2 つの層付き酵素構造の間の最小エネルギー経路（MEP）を、系全体に ML/MM 計算機を使って GSM（Growing String Method、デフォルト）または DMF（Direct Max Flux）で 1 回だけ求めます。R と P をつなぐ構造変化のトラジェクトリと、最もエネルギーの高いイメージ（HEI）を TS 候補として書き出します。
+`path-opt` は、反応物と生成物の 2 つの層付き酵素構造の間の最小エネルギー経路（MEP）を、系全体に ML/MM 計算機を使って GSM（Growing String Method、デフォルト）または DMF（Direct Max Flux）で 1 回だけ求めます。R と P をつなぐ構造変化のトラジェクトリと、トラジェクトリの各区間における局所ピークのうち、最もエネルギーの高い構造（HEI）を TS 候補として書き出します。
 
 ---
 
@@ -25,7 +25,7 @@ mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_regi
   -q 0 -m 1 --out-json --out-dir ./result_path_opt
 ```
 
-端末に `[write] Wrote '…/hei.xyz'` で始まる行が出れば、TS 候補が書き出されています。`result.json` の `scientific_status` には、指定した段（端点の事前最適化と MEP）がすべて収束すると `success`、そうでなければ `partial` か `failed` が入ります。`barrier_kcal` は最初のイメージを基準にした HEI のエネルギー、`hei_index` は経路上の HEI の位置です（下の「HEI の判定」を参照）。
+端末に `[write] Wrote '…/hei.xyz'` で始まる行が出れば、TS 候補が書き出されています。`result.json` の `scientific_status` には、指定した段（端点の事前最適化と MEP）がすべて収束すると `success`、そうでなければ `partial` か `failed` が入ります。`barrier_kcal` は選択したピークと、その直前の局所極小（basin）のエネルギー差、`hei_index` は経路上の HEI の位置です（下の「HEI の判定」を参照）。
 
 ### 2. 端点の事前最適化の上限を変える
 
@@ -63,7 +63,7 @@ mlmm path-opt -i reactant.pdb product.pdb --parm7 real.parm7 --model-pdb ml_regi
 2. **経路の成長と精密化**:
 GSM は 2 つの端点の間に `--max-nodes` 個の可動なイメージのストリングを成長させ、`--thresh-gsm` まで最適化します。`--climb`（デフォルト有効）では、続くクライミングイメージ探索で最も高いイメージを鞍点へ押し上げます。DMF は補間で作った経路を IPOPT（内点法の最適化ソルバー）で `--dmf-tol` まで最適化します。
 3. **HEI の書き出し**:
-最終経路でエネルギーが最も高いイメージを HEI とし、コメント行にエネルギーを付けて `hei.xyz` に書き出します。
+トラジェクトリの各区間における局所ピークのうち、最もエネルギーの高い構造を HEI とし、コメント行にエネルギーを付けて `hei.xyz` に書き出します。端点のエネルギーがそれより高くても、内部のピークを TS 候補とします。内部に局所ピークがない経路では、MEP 障壁はなく、`barrier_kcal` は `null` です。
 
 ---
 
@@ -72,7 +72,7 @@ GSM は 2 つの端点の間に `--max-nodes` 個の可動なイメージのス�
 | HEI の位置 | 意味 | 次の操作 |
 | --- | --- | --- |
 | 経路の内側（`hei_index` が `1` 〜 `n_images − 2`） | TS 候補 | [`tsopt`](tsopt.md) で最適化し、[`irc`](irc.md) を実行する |
-| 端点（`hei_index` が `0` または `n_images − 1`） | TS 候補ではない（端点の間に、高いほうの端点より上にあるイメージがない） | 端点を見直すか、別の方法で候補を作る（{ref}`TS が得られないとき <ja-ts-search-fails>` を参照） |
+| 端点（`hei_index` が `0` または `n_images − 1`） | TS 候補ではない（経路の内部に局所ピークがない） | 端点を見直すか、別の方法で候補を作る（{ref}`TS が得られないとき <ja-ts-search-fails>` を参照） |
 
 HEI は近似的な経路の頂点であり、TS そのものではありません。TS 最適化が成功すると、反応モードの虚振動が 1 つ出ます。`tsopt` で n_imag = 1 になり、その TS からの IRC が狙った R と P に着けば、HEI から TS が得られたことになります。
 

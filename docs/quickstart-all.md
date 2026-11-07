@@ -9,7 +9,7 @@ The commands below use the bundled example of the GPP (geranyl pyrophosphate) C6
 ## What it is for
 
 * **A first run of the whole workflow**: run every stage once on the bundled example.
-* **The MEP between R and P**: get the path and its highest-energy image (HEI), the TS candidate.
+* **The MEP between R and P**: get the path and its selected structure (HEI), the TS candidate.
 * **TS, IRC, frequencies, and DFT in the same run**: add `--tsopt --thermo --dft` to check the TS candidate.
 
 ## Minimal command

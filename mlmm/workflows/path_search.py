@@ -25,6 +25,7 @@ import re    # used in _segment_base_id
 import click
 from mlmm.core.output import emit
 import numpy as np
+from mlmm.domain.mep_profile import mep_barrier_kcal, select_mep_peak
 import torch
 
 from pysisyphus.helpers import geom_loader
@@ -393,13 +394,8 @@ def _segment_base_id(tag: str) -> str:
 
 
 def _select_hei_index(energies: Sequence[float]) -> int:
-    """Return the global highest-energy-image index."""
-    E = np.asarray(energies, dtype=float)
-    if E.size == 0:
-        raise ValueError("Cannot select an HEI from an empty energy profile.")
-    if not np.all(np.isfinite(E)):
-        raise ValueError("Cannot select an HEI from non-finite energies.")
-    return int(np.argmax(E))
+    """Return the highest local peak, or an endpoint when no peak exists."""
+    return select_mep_peak(energies)[0]
 
 
 def _is_local_minimum(idx: int, energies: Sequence[float]) -> bool:
@@ -449,6 +445,15 @@ class SegmentReport:
     # reactive segment whose optimizer did not explicitly converge is unusable
     # and cannot make the path aggregate a scientific success.
     converged: Optional[bool] = None
+    peak_image: Any = field(default=None, repr=False, compare=False)
+
+
+def _segment_hei_index(images, energies, report):
+    """Keep the selected peak after stitching removes a shared first frame."""
+    for index, image in enumerate(images):
+        if image is report.peak_image:
+            return index
+    return _select_hei_index(energies)
 
 
 def _run_gsm_between(
@@ -1036,18 +1041,19 @@ def _stitch_paths(
 
                 if segments_out is not None:
                     try:
-                        barrier_kcal = (max(br.energies) - br.energies[0]) * AU2KCALPERMOL
+                        barrier_kcal = mep_barrier_kcal(br.energies)
                         delta_kcal = (br.energies[-1] - br.energies[0]) * AU2KCALPERMOL
                     except Exception:
                         barrier_kcal = float("nan")
                         delta_kcal = float("nan")
                     bridge_report = SegmentReport(
                         tag=f"{bridge_name_base}_bridge",
-                        barrier_kcal=float(barrier_kcal),
+                        barrier_kcal=barrier_kcal,
                         delta_kcal=float(delta_kcal),
                         summary="",
                         kind="bridge",
                         converged=getattr(br, "is_converged", None),
+                        peak_image=br.images[int(br.hei_idx)],
                     )
                     insert_pos: Optional[int] = None
                     try:
@@ -1380,7 +1386,7 @@ def _build_multistep_path(
             # Preserve the diagnostic separately from solver convergence.
             changed, step_summary = True, "(bond-change evaluation failed)"
         try:
-            barrier_kcal = (max(gsm.energies) - gsm.energies[0]) * AU2KCALPERMOL
+            barrier_kcal = mep_barrier_kcal(gsm.energies)
             delta_kcal = (gsm.energies[-1] - gsm.energies[0]) * AU2KCALPERMOL
         except Exception:
             barrier_kcal = float("nan")
@@ -1395,11 +1401,12 @@ def _build_multistep_path(
         )
         report = SegmentReport(
             tag=seg_tag,
-            barrier_kcal=float(barrier_kcal),
+            barrier_kcal=barrier_kcal,
             delta_kcal=float(delta_kcal),
             summary=step_summary if changed else "(no covalent changes detected)",
             kind="seg",
             converged=getattr(gsm, "is_converged", None),
+            peak_image=gsm.images[int(gsm.hei_idx)],
         )
         return CombinedPath(
             images=gsm.images, energies=gsm.energies, segments=[report],
@@ -1539,7 +1546,7 @@ def _build_multistep_path(
         click.echo(textwrap.indent(right_summary, prefix="  "))
 
     try:
-        barrier_kcal = (max(step_E) - step_E[0]) * AU2KCALPERMOL
+        barrier_kcal = mep_barrier_kcal(step_E)
         delta_kcal = (step_E[-1] - step_E[0]) * AU2KCALPERMOL
     except Exception:
         barrier_kcal = float("nan")
@@ -1552,6 +1559,7 @@ def _build_multistep_path(
         summary=step_summary if _changed else "(no covalent changes detected)",
         kind=step_kind,
         converged=getattr(ref1, "is_converged", None),
+        peak_image=step_imgs[int(ref1.hei_idx)],
     )
 
     parts: List[Tuple[List[Any], List[float]]] = []
@@ -2761,7 +2769,7 @@ def cli(
                 # (B) HEI pocket files only for bond-change segments
                 if s.kind != "bridge" and s.summary and s.summary.strip() != "(no covalent changes detected)":
                     energies_seg = [combined_all.energies[j] for j in idxs]
-                    imax_rel = int(np.argmax(np.array(energies_seg, dtype=float)))
+                    imax_rel = _segment_hei_index(seg_imgs, energies_seg, s)
                     imax_abs = idxs[imax_rel]
                     hei_img = combined_all.images[imax_abs]
                     hei_E = [combined_all.energies[imax_abs]]
@@ -2856,9 +2864,10 @@ def cli(
                         narrative=True,
                     )
                 else:
+                    barrier_text = f"{seg.barrier_kcal:.2f}" if seg.barrier_kcal is not None else "n/a"
                     emit(
                         f"  [{i:02d}] ({kind_label}) {seg.tag}  |  "
-                        f"ΔE‡ = {seg.barrier_kcal:.2f} kcal/mol,  "
+                        f"ΔE‡ = {barrier_text} kcal/mol,  "
                         f"ΔE = {seg.delta_kcal:.2f} kcal/mol",
                         narrative=True,
                     )
@@ -2893,7 +2902,10 @@ def cli(
 
                 if s.kind == "seg" and s.summary and s.summary.strip() != "(no covalent changes detected)":
                     # New TS group
-                    imax = max(idxs, key=lambda j: combined_all.energies[j])
+                    imax = idxs[_segment_hei_index(
+                        [combined_all.images[j] for j in idxs],
+                        [combined_all.energies[j] for j in idxs], s,
+                    )]
                     ts_e = float(combined_all.energies[imax])
                     first_im_e = float(combined_all.energies[idxs[-1]])
                     current = {

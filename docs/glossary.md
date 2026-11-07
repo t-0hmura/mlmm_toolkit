@@ -42,7 +42,7 @@ Each abbreviation, method name, and unit used in the docs is defined here in one
 | **IRC** | Intrinsic Reaction Coordinate | A mass-weighted steepest-descent path from a TS toward reactants and products. Often used to validate TS connectivity. |
 | **GSM** | Growing String Method | A string-based method that grows images from endpoints and optimizes them to approximate an MEP. |
 | **DMF** | Direct Max Flux | A chain-of-states method for optimizing an MEP by maximizing flux along the pathway. In mlmm-toolkit it is selected with `--mep-mode dmf`. |
-| **HEI** | Highest-Energy Image | The image along an MEP with maximum energy; often used as a TS guess. |
+| **HEI** | Highest-Energy Image | The highest-energy local peak selected from an MEP as a TS guess; an endpoint is returned when no internal peak exists. |
 | **Image** | — | A single geometry (one "node") along a chain-of-states path. |
 | **Segment** | — | An MEP between two adjacent endpoints (e.g., R → I1, I1 → I2, …). |
 | **Kink** | — | A segment where only the conformation changes: the two structures that `path-search` optimizes on either side of the HEI (End1 and End2; [path-search → How it works](path-search.md#how-it-works), step 2) have the same covalent bonds. `path-search` fills it with a few linearly interpolated nodes (`search.kink_max_nodes`, default 3) and optimizes each one instead of running a new GSM or DMF path. |

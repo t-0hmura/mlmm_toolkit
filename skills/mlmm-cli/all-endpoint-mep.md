@@ -61,7 +61,7 @@ Read the console, `summary.json`, and the endpoints as in
 [all.md](all.md#judge-success). For this mode also check:
 
 - **MEP**: open `mep_trj.pdb` (or `.xyz`) and `energy_diagram_MEP.png`; the TS candidates are `_work/path_opt/hei_seg_NN.*` (`_work/path_search/` with `--refine-path`).
-- **Segments**: `summary.json["segments"]` lists `index`, `kind`, `barrier_kcal`, `delta_kcal`, and `bond_changes` for each segment. The default gives at most one segment per neighboring pair (none when the highest image of its MEP is an end image; reason `endpoint_hei`). With `--refine-path`, compare `n_segments_reactive` with the number of inputs minus one; `n_segments` also counts `"kink"` and `"bridge"` segments.
+- **Segments**: `summary.json["segments"]` lists `index`, `kind`, `barrier_kcal`, `delta_kcal`, and `bond_changes` for each segment. The default gives at most one segment per neighboring pair (none when its MEP has no internal local peak; reason `endpoint_hei`). With `--refine-path`, compare `n_segments_reactive` with the number of inputs minus one; `n_segments` also counts `"kink"` and `"bridge"` segments.
 - **R/TS/P**: with `--tsopt`, `segments/seg_NN/{reactant,ts,product}.*` are written after IRC and the endpoint optimizations (RFO by default, L-BFGS with `--opt-mode-post grad`).
 
 ## Pitfalls and recovery

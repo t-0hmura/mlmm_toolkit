@@ -42,7 +42,7 @@
 | **IRC** | Intrinsic Reaction Coordinate | TS から反応物側・生成物側へ向かう、質量重み付き最急降下経路。TS の接続検証によく使用。 |
 | **GSM** | Growing String Method | 端点からストリング（イメージの列）を伸長・最適化して MEP を近似する手法。 |
 | **DMF** | Direct Max Flux | 反応座標方向のフラックスを最大化することで MEP を最適化する chain-of-states 手法。`--mep-mode dmf` で選択。 |
-| **HEI** | Highest-Energy Image | MEP 上でエネルギーが最大のイメージ。TS の初期推定としてよく使用。 |
+| **HEI** | Highest-Energy Image | トラジェクトリの各区間における局所ピークのうち、最もエネルギーの高い構造で、TS の初期推定に使います。内部にピークがなければ端点を返します。 |
 | **イメージ（Image）** | — | 経路上の 1 つの構造（1 ノード）。 |
 | **セグメント** | — | 2 つの隣接する端点を結ぶ MEP（例: R → I1, I1 → I2, …）。 |
 | **配座変化の区間（kink）** | Kink | 配座だけが変わる経路の区間（セグメント）。`path-search` が HEI の両側で最適化した 2 つの構造（End1 と End2。[path-search の処理の仕組み](path-search.md#処理の仕組みと計算仕様) の 2）の間で、共有結合が変わらない区間を指します。`path-search` は新しい GSM・DMF の経路の代わりに、線形補間のノードを数個（`search.kink_max_nodes`、デフォルト 3）入れて 1 つずつ最適化します。 |
