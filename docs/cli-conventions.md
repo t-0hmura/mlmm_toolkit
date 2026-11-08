@@ -323,6 +323,10 @@ built-in defaults  <  --config (YAML)  <  CLI options
 * **Inline scan literals**: the inline literals of one run hold either distance targets or ranges, not both. To combine them, list them under `stages:` in a YAML/JSON spec.
 * **mmCIF and large structures**: up to 619,938 residues can be handled (62 one-character chain IDs × 9,999 residue numbers in the internal PDB used during the calculation). `fix-altloc` and `add-elem-info` read PDB only; for mmCIF, the altLoc is chosen and element symbols are taken from `_atom_site.type_symbol` when the file is read. A row without `_atom_site.type_symbol`, a non-finite coordinate, or a different atom count between the reaction states stops with an error. Coordinates must fit the fixed-width PDB columns; move a structure that lies far from the origin closer to it.
 
+## Plot output
+
+`all`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`, and `irc` write plots by default (`--plot`). Add `--no-plot` when figures are not needed. It skips figures such as PNG and HTML, including Chrome rendering, while retaining CSV, structures, JSON, and other numerical outputs. The setting in `all` also applies to its child commands. The plotting-only commands `trj2fig` and `energy-diagram` do not have this flag.
+
 ## See Also
 
 - [Installation](installation.md) — setup and dependencies

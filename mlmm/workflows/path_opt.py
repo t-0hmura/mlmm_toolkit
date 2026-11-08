@@ -10,6 +10,8 @@ For detailed documentation, see: docs/path_opt.md
 
 from __future__ import annotations
 
+from mlmm.core.plotting import add_plot_option
+
 from mlmm.cli.completion import completion_guard, record_completion
 
 from copy import deepcopy
@@ -1129,7 +1131,7 @@ def _run_dmf_mep(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable electrostatic embedding. MLIP backends use the computationally expensive xTB point-charge delta correction; dft uses native PySCF MM point charges.",
+    help="Enable electrostatic embedding: native MACE-POLAR, xTB correction for other MLIPs, or native PySCF point charges for dft.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -1184,6 +1186,7 @@ def _run_dmf_mep(
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @add_dft_calculator_options()
+@add_plot_option()
 @click.pass_context
 def cli(
     ctx: click.Context,

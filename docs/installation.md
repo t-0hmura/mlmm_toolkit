@@ -184,6 +184,15 @@ If you prefer to build the environment piece by piece:
     python -m pip check
     ```
 
+(mace-polar-embedding-install)=
+## Native MACE-POLAR embedding (optional)
+
+To use `--embedcharge` with MACE-POLAR, install the following additional dependencies in the MACE environment from step 7. xTB is not required.
+
+```bash
+pip install 'mace-torch[polar]>=0.3.17' 'graph-longrange>=0.4.4'
+```
+
 ## System requirements
 
 **OS.** Linux is recommended. Native Windows is not supported because AmberTools (`tleap`) is not available there.

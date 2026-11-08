@@ -678,6 +678,8 @@ def calculator_provenance(calc_cfg: Mapping[str, Any]) -> Dict[str, Any]:
         "primary_method": "dft" if backend == "dft" else "mlip",
         "primary_method_label": "DFT/MM" if backend == "dft" else "ML/MM",
     }
+    if backend == "mace" and calc_cfg.get("embedcharge", False):
+        provenance["embedding_policy"] = "native-polar-or-xtb-v1"
     if backend == "dft":
         provenance["dft_settings"] = dft_identity
         provenance["dft_resources"] = {

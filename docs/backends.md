@@ -144,17 +144,29 @@ version provides them, and the DFT backend does so without `--embedcharge`. A cu
 selected backend, the run stops with an error. The [MM part of the Hessian](mlmm-calc.md) is
 set separately.
 
-## xTB electrostatic correction
+## Electrostatic embedding
 
-For MLIP/MM workflows, `--embedcharge/--no-embedcharge` (default off) adds
-`E_xTB(ML + link H + MM point charges) - E_xTB(ML + link H)` and the
-corresponding force and Hessian difference, so the ML region feels the MM point
-charges. xTB sees the same ML region and link hydrogens as the MLIP. The
-embedding follows ONIOM-EE: MM atoms one or two bonds from the ML region are not
-point charges ([ML/MM Calculator](mlmm-calc.md)).
+`--embedcharge` includes MM charges in the high-level calculation using ONIOM-EE. The treatment depends on the backend.
 
-With `-b dft`, `--embedcharge` instead places the same MM point charges directly
-in the PySCF Hamiltonian, without the xTB correction.
+- **MLIPs**: electrostatic effects from MM point charges are corrected at the xTB level.
+- **MACE-POLAR**: MACE-POLAR itself computes the polarization and electrostatic interaction with MM charges. xTB is not required. External charges use MACE-POLAR's Gaussian-basis operators.
+- **DFT**: MM point charges are included directly in the PySCF Hamiltonian.
+
+With electrostatic embedding, the input MM point charges also receive forces from the ML region, which are added to the corresponding MM atoms.
+
+Without `--embedcharge`, electrostatic interactions between the ML and MM regions are treated only by the MM force field, and polarization of the ML region by MM point charges is not included in the high-level calculation ([ML/MM Calculator](mlmm-calc.md)).
+
+The embedding-correction Hessian is computed by central differences of the forces and added to the MLIP Hessian.
+
+For MACE-POLAR, both ML and MM forces are energy derivatives, and link-H forces are projected onto the real atoms. Native embedding requires `mace-torch[polar]>=0.3.17` and `graph-longrange>=0.4.4`. Install them in the existing {ref}`MACE environment <mace-polar-embedding-install>`.
+
+```bash
+pip install 'mace-torch[polar]>=0.3.17' 'graph-longrange>=0.4.4'
+```
+
+### xTB electrostatic correction
+
+For MLIPs other than MACE-POLAR, the correction is `E_xTB(ML + link H + MM point charges) - E_xTB(ML + link H)`, with the corresponding force and Hessian difference. xTB sees the same ML region and link hydrogens as the MLIP.
 
 ## DFT/MM backend
 
@@ -285,7 +297,7 @@ ML-region energy, forces, and Hessian in the correct units.
   `--hessian-calc-mode Analytical`: the run stops with an error because the
   parallel predictor has no autograd model. Use `--uma-workers 1` for an
   analytical Hessian, or `FiniteDifference` with several workers.
-- `--embedcharge` runs xTB with and without the MM point charges at every
+- For MLIPs other than MACE-POLAR, `--embedcharge` runs xTB with and without the MM point charges at every
   energy, force, and Hessian evaluation; keep the ML region to about 200–300
   atoms and benchmark the actual system first. The Hessian of the xTB
   correction displaces only the ML atoms and link hydrogens, so the number of

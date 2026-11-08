@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mlmm.core.plotting import add_plot_option, plot_enabled
+
 from mlmm.cli.completion import completion_guard, record_completion
 
 from collections.abc import Mapping
@@ -620,6 +622,11 @@ def _run_cli_main(
     ``on_nonzero="result"`` lets completed scientific failures reach the caller's
     result checks, while execution errors still raise.
     """
+    args = list(args)
+    if (not plot_enabled()
+            and any("--plot" in parameter.opts for parameter in getattr(cli_obj, "params", ()))
+            and not any(value in {"--plot", "--no-plot"} for value in args)):
+        args.append("--no-plot")
     saved = list(sys.argv)
     label = prefix or cmd_name
     # In-proc subcommand dispatch — flag the child's banner / device echo to
@@ -3733,13 +3740,13 @@ def _write_segment_energy_diagram(
         )
         if title_note:
             fig.update_layout(title=title_note)
-        write_plotly_image(fig, png, scale=2)
+        image_written = write_plotly_image(fig, png, scale=2) is not None
     except Exception as e:
         image_error = str(e)
         click.echo(f"[diagram] NOTE: PNG export skipped: {e}", err=True)
     else:
-        image_written = True
-        emit(f"[diagram] Wrote energy diagram → {png.name}", detail=True)
+        if image_written:
+            emit(f"[diagram] Wrote energy diagram → {png.name}", detail=True)
 
     payload: Dict[str, Any] = {
         "name": prefix.stem,
@@ -3793,6 +3800,8 @@ def _merge_irc_trajectories_to_single_plot(
     """
     Build a single IRC plot over all reactive segments using trj2fig.
     """
+    if not plot_enabled():
+        return
     all_blocks: List[str] = []
     for trj_path, reverse in trj_and_flags:
         if not isinstance(trj_path, Path) or not trj_path.exists():
@@ -4928,9 +4937,8 @@ def _configure_all_help_visibility(command: click.Command) -> None:
     default=False,
     show_default=True,
     help=(
-        "Enable point-charge treatment. MLIP/MM stages use the "
-        "computationally expensive xTB delta correction; DFT/MM stages embed "
-        "MM charges in the PySCF Hamiltonian."
+        "Enable electrostatic embedding: native MACE-POLAR, xTB correction "
+        "for other MLIPs, or native PySCF point charges for DFT/MM."
     ),
 )
 @click.option(
@@ -4975,6 +4983,7 @@ def _configure_all_help_visibility(command: click.Command) -> None:
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @add_dft_calculator_options(include_method=False, include_engine=False)
+@add_plot_option()
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -6676,6 +6685,7 @@ def cli(
         for key in (
             "mlip_backend", "mlip_model", "mlip_task", "mlip_precision",
             "primary_method", "dft_settings",
+            "embedding_policy",
         )
         if key in _resolved_provenance
     }
@@ -7592,7 +7602,7 @@ def cli(
                 energies_au=[e_react, eT, e_prod],
                 ref_energy=e_react,
                 au_to_kcal=AU2KCALPERMOL,
-                diagram_path=str((seg_dir / "energy_diagram_MLIP").with_suffix(".png")),
+                diagram_path=str((seg_dir / "energy_diagram_MLIP").with_suffix(".png")) if plot_enabled() else None,
                 structures=_structs_seg,
             )
             if endpoint_stop is not None:
@@ -7603,7 +7613,7 @@ def cli(
                     energies_au=[GR, GT, GP],
                     ref_energy=GR,
                     au_to_kcal=AU2KCALPERMOL,
-                    diagram_path=str((seg_dir / "energy_diagram_G_MLIP").with_suffix(".png")),
+                    diagram_path=str((seg_dir / "energy_diagram_G_MLIP").with_suffix(".png")) if plot_enabled() else None,
                     structures=_structs_seg,
                 )
             if eR_dft is not None and eT_dft is not None and eP_dft is not None:
@@ -7612,7 +7622,7 @@ def cli(
                     energies_au=[eR_dft, eT_dft, eP_dft],
                     ref_energy=eR_dft,
                     au_to_kcal=AU2KCALPERMOL,
-                    diagram_path=str((seg_dir / "energy_diagram_DFT").with_suffix(".png")),
+                    diagram_path=str((seg_dir / "energy_diagram_DFT").with_suffix(".png")) if plot_enabled() else None,
                     structures=_structs_seg,
                 )
             if GR_dftMLIP is not None and GT_dftMLIP is not None and GP_dftMLIP is not None:
@@ -7621,7 +7631,7 @@ def cli(
                     energies_au=[GR_dftMLIP, GT_dftMLIP, GP_dftMLIP],
                     ref_energy=GR_dftMLIP,
                     au_to_kcal=AU2KCALPERMOL,
-                    diagram_path=str((seg_dir / "energy_diagram_G_DFT_plus_MLIP").with_suffix(".png")),
+                    diagram_path=str((seg_dir / "energy_diagram_G_DFT_plus_MLIP").with_suffix(".png")) if plot_enabled() else None,
                     structures=_structs_seg,
                 )
 
@@ -8057,7 +8067,7 @@ def cli(
             energies_au=[e_react, eT, e_prod],
             ref_energy=e_react,
             au_to_kcal=AU2KCALPERMOL,
-            diagram_path=str((tsroot / "energy_diagram_MLIP").with_suffix(".png")),
+            diagram_path=str((tsroot / "energy_diagram_MLIP").with_suffix(".png")) if plot_enabled() else None,
             structures=_structs,
         )
         if _endpoint_stop is not None:
@@ -8068,7 +8078,7 @@ def cli(
                 energies_au=[GR, GT, GP],
                 ref_energy=GR,
                 au_to_kcal=AU2KCALPERMOL,
-                diagram_path=str((tsroot / "energy_diagram_G_MLIP").with_suffix(".png")),
+                diagram_path=str((tsroot / "energy_diagram_G_MLIP").with_suffix(".png")) if plot_enabled() else None,
                 structures=_structs,
             )
         if eR_dft is not None and eT_dft is not None and eP_dft is not None:
@@ -8077,7 +8087,7 @@ def cli(
                 energies_au=[eR_dft, eT_dft, eP_dft],
                 ref_energy=eR_dft,
                 au_to_kcal=AU2KCALPERMOL,
-                diagram_path=str((tsroot / "energy_diagram_DFT").with_suffix(".png")),
+                diagram_path=str((tsroot / "energy_diagram_DFT").with_suffix(".png")) if plot_enabled() else None,
                 structures=_structs,
             )
         if GR_dftMLIP is not None and GT_dftMLIP is not None and GP_dftMLIP is not None:
@@ -8086,7 +8096,7 @@ def cli(
                 energies_au=[GR_dftMLIP, GT_dftMLIP, GP_dftMLIP],
                 ref_energy=GR_dftMLIP,
                 au_to_kcal=AU2KCALPERMOL,
-                diagram_path=str((tsroot / "energy_diagram_G_DFT_plus_MLIP").with_suffix(".png")),
+                diagram_path=str((tsroot / "energy_diagram_G_DFT_plus_MLIP").with_suffix(".png")) if plot_enabled() else None,
                 structures=_structs,
             )
 
@@ -8722,7 +8732,8 @@ def cli(
             current_plot = manifest.claim_optional("path_opt.mep_plot")
             if current_plot is not None:
                 current_path_images[current_plot.name] = current_plot
-                _echo_detail(f"[plot] Saved energy plot → '{current_plot}'")
+                if plot_enabled():
+                    _echo_detail(f"[plot] Saved energy plot → '{current_plot}'")
         except Exception as e:
             _echo(f"[plot] WARNING: Failed to plot concatenated MEP: {e}", err=True)
 

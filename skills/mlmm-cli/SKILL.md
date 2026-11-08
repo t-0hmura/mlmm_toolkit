@@ -50,6 +50,8 @@ The calculation commands other than `all` need the full-system Amber topology (`
 
 Settings apply in the order built-in defaults < `--config` YAML < explicit CLI options. The calculation commands write to `./result_<subcommand>/` by default (for example `./result_all/`, `./result_path_opt/`); change it with `-o/--out-dir`. `extract` and `mm-parm` write into `./`, and `define-layer` next to its input; these three take output file paths instead.
 
+- `--plot/--no-plot`: plots are on by default in `all`, `scan`, `scan2d`, `scan3d`, `path-opt`, `path-search`, and `irc`. Add `--no-plot` when figures are not needed; keep CSV, structures, and JSON. `all` propagates the setting to its children. Plotting-only commands do not have this flag.
+
 ## Cross-cutting pitfalls
 
 - **Wrong charge**: check it before a long job. `extract` prints `Total active site model charge`, and `all --dry-run` runs the preparation and the charge check in a temporary directory, adds the electron-parity check only with `--parm7`, prints the plan, and skips the calculations (it never runs AmberTools). With `--model-indices`, the charge cannot be derived from `-l`; give `-q`.
@@ -60,7 +62,8 @@ Settings apply in the order built-in defaults < `--config` YAML < explicit CLI o
 - **Hidden options**: an option missing from `--help` may be listed by `--help-advanced`.
 - **Out of memory on a Hessian**: narrow the Hessian region with `--hessian-cutoff` (`opt`, `tsopt`, `freq`, `sp`; `tsopt` and `freq` also need `--active-dof-mode ml-only`, see [Trim to lower cost](../mlmm-model-setup/SKILL.md#trim-to-lower-cost)), and keep the default `FiniteDifference` unless a pilot shows `Analytical` is better.
 - **`--uma-workers` above 1 with `--hessian-calc-mode Analytical`**: this stops with an error. Use one worker for an analytical Hessian, or `FiniteDifference` with several workers.
-- **`--embedcharge`**: the xTB correction runs xTB with and without the MM point charges at every evaluation; keep the ML region to about 200–300 atoms and benchmark first ([backends.md](../mlmm-install/backends.md)). With `-b dft`, it places the MM point charges in the PySCF Hamiltonian instead.
+- **`--embedcharge`**: for MLIPs other than MACE-POLAR, the xTB correction runs xTB with and without the MM point charges at every evaluation; keep the ML region to about 200–300 atoms and benchmark first ([backends.md](../mlmm-install/backends.md)). With `-b dft`, it places the MM point charges in the PySCF Hamiltonian instead.
+- With a MACE-POLAR model, `--embedcharge` automatically uses native MACE-POLAR polarization and electrostatics. xTB is not required ([setup](../mlmm-install/backends.md#native-mace-polar-embedding)).
 
 ## Where flags and defaults live
 

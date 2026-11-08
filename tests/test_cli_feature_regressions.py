@@ -67,7 +67,9 @@ def test_embedcharge_is_an_advanced_option(command: str) -> None:
         assert "pyscf" in help_text
         assert "qm hamiltonian" in help_text
     else:
-        assert "point-charge" in help_text
+        assert "mace-polar" in help_text
+        assert "xtb correction" in help_text
+        assert "pyscf point charges" in help_text
 
     primary = CliRunner().invoke(root_cli, [command, "--help"])
     assert primary.exit_code == 0

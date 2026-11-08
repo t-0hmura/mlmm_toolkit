@@ -239,9 +239,19 @@ python -c "import cupy; print('cupy        :', cupy.__version__)"
 
 Usage and the CPU or GPU choice are in [dft](../mlmm-cli/dft.md).
 
+## Native MACE-POLAR embedding
+
+With a MACE-POLAR model, `--embedcharge` automatically uses native MACE-POLAR polarization and electrostatics. xTB is not required. In the MACE environment, install the external-source operators:
+
+```bash
+pip install 'mace-torch[polar]>=0.3.17' 'graph-longrange>=0.4.4'
+```
+
+MM-charge selection, the cutoff, and one-/two-bond exclusions follow the same ONIOM-EE rules. ML and MM forces are energy derivatives; the embedding-correction Hessian uses central force differences. Without `--embedcharge`, the model is evaluated in vacuum. Do not fall back to xTB when native embedding fails.
+
 ## xTB point-charge correction
 
-For MLIP/MM commands, `--embedcharge` adds this correction:
+For MLIP/MM commands other than MACE-POLAR, `--embedcharge` adds this correction:
 
 ```text
 ΔE = E_xTB(ML + link H + MM point charges) - E_xTB(ML + link H)

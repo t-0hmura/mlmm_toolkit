@@ -98,11 +98,29 @@ mlmm all -i r_complex.pdb p_complex.pdb -c PRE -q -1 --deterministic
 
 `--hessian-calc-mode` で、ML 領域の Hessian の計算方式を選びます。このフラグは `freq`、`irc`、`tsopt`、`sp`、`all` にあり、YAML では `calc.hessian_calc_mode` です。`FiniteDifference`（デフォルト）は力の中心差分を取り、`Analytical` はバックエンドの自動微分またはネイティブの Hessian を使います。UMA（ワーカー 1 つのとき）、ORB、MACE、AIMNet2 はインストールした版が対応していれば解析 Hessian を計算でき、DFT のバックエンドも `--embedcharge` なしなら計算できます。自作の calculator は `FiniteDifference` だけに対応します。選んだバックエンドで解析 Hessian が使えないときは、エラーで止まります。[Hessian の MM の部分](mlmm-calc.md)は別に設定します。
 
-## xTB 静電補正
+## 静電埋め込み
 
-MLIP/MM の計算では、`--embedcharge/--no-embedcharge`（デフォルトはオフ）で `E_xTB(ML + link H + MM point charges) - E_xTB(ML + link H)` と、それに対応する力と Hessian の差を足し、ML 領域に MM の点電荷の影響を入れます。xTB には MLIP と同じ ML 領域とリンク水素を渡します。埋め込みは ONIOM-EE の形で、ML 領域から 1・2 結合の MM 原子は点電荷にしません（[ML/MM 計算機](mlmm-calc.md)）。
+`--embedcharge`を付けると、ONIOM-EEの形でMM電荷を高レベル計算に取り込みます。電荷の扱い方は、バックエンドごとに決まります。
 
-`-b dft` では、`--embedcharge` は xTB の補正を使わず、同じ MM の点電荷を PySCF のハミルトニアンに直接入れます。
+- **MLIP**：MM点電荷からの静電効果をxTB計算レベルで補正します。
+- **MACE-POLAR**：MM電荷による分極と静電相互作用を、MACE-POLAR自身で計算します。xTBは不要です。外部電荷はMACE-POLARのGaussian基底の演算で扱います。
+- **DFT**：PySCFのHamiltonianにMM点電荷を直接含めます。
+
+静電埋め込みの場合、入力したMM点電荷にもML領域からの力が返り、対応するMM原子に加算されます。
+
+`--embedcharge`を付けない場合、ML領域とMM領域の静電相互作用はMM力場のみで扱われ、MM点電荷によるML領域の分極は高レベル計算に含まれません（[ML/MM計算機](mlmm-calc.md)）。
+
+埋め込み補正のHessianは力の中心差分で求められ、MLIPのHessianに加算・補正されます。
+
+MACE-POLARではML側・MM側の力をエネルギーから微分し、link Hの力も実原子へ投影します。直接埋め込みには`mace-torch[polar]>=0.3.17`と`graph-longrange>=0.4.4`が必要です。既存の{ref}`MACE用環境 <ja-mace-polar-embedding-install>`で導入してください。
+
+```bash
+pip install 'mace-torch[polar]>=0.3.17' 'graph-longrange>=0.4.4'
+```
+
+### xTB 静電補正
+
+MACE-POLAR以外のMLIPでは、`E_xTB(ML + link H + MM point charges) - E_xTB(ML + link H)`と、それに対応する力とHessianの差を加えます。xTBにはMLIPと同じML領域とリンク水素を渡します。
 
 ## DFT/MM バックエンド
 
@@ -175,7 +193,7 @@ ML/MM の段では、選んだ ML バックエンドと Hessian の途中の配�
 - `--deterministic` では、実行する演算に PyTorch の決定論的な版が無いときは、再現しない結果を出さずに、エラーで止まります。
 - 環境変数 `MLMM_STRICT_DETERMINISTIC=1` でも、CI のジョブや Python API で同じモードになります。この変数があると、`--no-deterministic` を付けてもモードは切れません。
 - UMA で `--uma-workers` を 2 以上にすると、`--hessian-calc-mode Analytical` とは併用できず、エラーで止まります。並列の予測器は autograd のモデルを持たないためです。解析 Hessian には `--uma-workers 1` を、複数のワーカーには `FiniteDifference` を使ってください。
-- `--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子程度までにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子とリンク水素だけを変位させるので、MM 原子の数が増えても xTB の実行回数は増えません。
+- MACE-POLAR以外のMLIPでは、`--embedcharge` はエネルギー、力、Hessian を求めるたびに、MM の点電荷あり・なしで xTB を実行します。ML 領域は 200〜300 原子程度までにし、実際の系で先に計算時間を測ってください。xTB の補正の Hessian は ML 原子とリンク水素だけを変位させるので、MM 原子の数が増えても xTB の実行回数は増えません。
 
 ## 関連ドキュメント
 

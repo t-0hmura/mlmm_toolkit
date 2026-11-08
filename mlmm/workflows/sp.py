@@ -278,7 +278,7 @@ def _resolve_sp_ml_region(
 @click.option(
     "--embedcharge/--no-embedcharge", "embedcharge",
     default=False, show_default=True,
-    help="Enable electrostatic embedding. MLIP backends use the computationally expensive xTB point-charge delta correction; dft uses native PySCF MM point charges.",
+    help="Enable electrostatic embedding: native MACE-POLAR, xTB correction for other MLIPs, or native PySCF point charges for dft.",
 )
 @click.option(
     "--embedcharge-cutoff", "embedcharge_cutoff",

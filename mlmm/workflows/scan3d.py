@@ -10,6 +10,8 @@ For detailed documentation, see: docs/scan3d.md
 
 from __future__ import annotations
 
+from mlmm.core.plotting import add_plot_option, plot_enabled
+
 from mlmm.cli.completion import completion_guard, record_completion
 
 import functools
@@ -349,7 +351,7 @@ def _finalize_surface_and_plot(
         & np.isfinite(z_points)
         & usable_mask.to_numpy(dtype=bool)
     )
-    if not np.any(mask):
+    if not np.any(mask) and plot_enabled():
         click.echo("[plot] No finite data for plotting.")
 
     summary: Dict[str, Any] = {
@@ -362,6 +364,9 @@ def _finalize_surface_and_plot(
             else None
         ),
     }
+    if not plot_enabled():
+        emit("\n====== 3D Scan finished ======\n", narrative=True)
+        return {**summary, "plot_written": False}
     n_unique, support_rank = _rbf_support_3d(
         d1_points[mask],
         d2_points[mask],
@@ -681,7 +686,7 @@ def _finalize_surface_and_plot(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable electrostatic embedding. MLIP backends use the computationally expensive xTB point-charge delta correction; dft uses native PySCF MM point charges.",
+    help="Enable electrostatic embedding: native MACE-POLAR, xTB correction for other MLIPs, or native PySCF point charges for dft.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -736,6 +741,7 @@ def _finalize_surface_and_plot(
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @add_dft_calculator_options()
+@add_plot_option()
 @click.pass_context
 def cli(
     ctx: click.Context,

@@ -24,6 +24,8 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 
 `--embedcharge` を付けると、ONIOM-EE の形の静電埋め込み（[Vreven et al., *J. Chem. Theory Comput.* 2006, 2, 815](https://doi.org/10.1021/ct050289g)）を使います。MM の点電荷を MODEL-high に入れ、MODEL-low には同じ点電荷と ML 原子の力場の電荷との Coulomb エネルギーを足します。この項が、REAL-low に含まれるそれらの点電荷と ML 領域の Coulomb エネルギーを打ち消すので、この相互作用は高レベルで 1 回だけ数えます。ML 領域から 1・2 結合離れた MM 原子は点電荷にせず、ML 領域との相互作用は REAL-low の力場の項に残ります。それ以外の MM 原子はすべて点電荷にし、Gaussian と同じく距離の cutoff は設けません。`--embedcharge-cutoff` を指定すると、ML 領域からその距離（Å）以内の原子だけを点電荷にし、`--ref-pdb` の構造（無ければ `-i` の PDB）で一度選んだあとは変えません。R・TS・P に同じ `--ref-pdb` を渡せば同じ点電荷になり、`all` は全段で同じ構造を使います。
 
+MACE-POLARを選択すると、`--embedcharge`はMACE-POLAR自身の分極・静電相互作用を使います。xTBは不要です。ML側・MM側の力とlink Hの投影を含み、埋め込み補正のHessianは力の中心差分で求めます。[バックエンドごとの方式](backends.md#静電埋め込み)を参照してください。
+
 ### 一般的な QM/MM との比較
 
 | 項目 | 一般的な QM/MM | mlmm-toolkit の ML/MM |
@@ -31,7 +33,7 @@ E_ONIOM = E(REAL-low) - E(MODEL-low) + E(MODEL-high)
 | 高レベル手法 | DFT、HF、post-HF | MLIP（UMA、ORB、MACE、AIMNet2）または DFT（`-b dft`） |
 | 低レベル手法 | OpenMM / Amber | `hessian_ff`（デフォルト）/ OpenMM |
 | リンク原子 | 通常は必要 | parm7 の C–C・C–N・N–C の結合のうち ML/MM 境界をまたぐものすべてに自動で付く |
-| 埋め込み | 静電埋め込みが一般的 | デフォルトは機械的埋め込み。`--embedcharge` で MM の点電荷を ONIOM-EE の形で入れる（MLIP では xTB の補正、DFT では PySCF の Hamiltonian） |
+| 埋め込み | 静電埋め込みが一般的 | デフォルトは機械的埋め込み。`--embedcharge` で MM の点電荷を ONIOM-EE の形で入れる（MACE-POLARは直接埋め込み、その他のMLIPはxTB補正、DFTはPySCFのHamiltonian） |
 | 速度 | 遅い（QM が律速） | MLIP なら速い（GPU で推論）。`-b dft` は DFT と同じコスト |
 
 ## Hessian / 最適化用の層設定

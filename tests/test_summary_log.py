@@ -908,3 +908,17 @@ def test_path_endpoint_optimizer_dirs_are_annotated(tmp_path, kind):
     assert "Initial optimization of endpoint 00" in text
     assert "Optimized left (R) endpoint" in text
     assert "Optimized right (P) endpoint" in text
+
+
+@pytest.mark.parametrize("model_spec", ["weights.pt", "/models/polar/weights.pt"])
+@pytest.mark.parametrize("model_class,is_polar", [("PolarMACE", True), ("ScaleShiftMACE", False)])
+def test_mace_polar_citation_uses_loaded_model_class(monkeypatch, model_spec, model_class, is_polar):
+    from types import SimpleNamespace
+    from mlmm.io import summary
+
+    monkeypatch.setattr(summary, "_MACE_MODEL_IS_POLAR", {})
+    calculator = SimpleNamespace(models=[type(model_class, (), {})()])
+    summary.register_mace_model_type(model_spec, calculator)
+    keys = summary._method_citation_record_keys({"mlip_backend": "mace", "mlip_model": model_spec})
+    assert ("mace_polar" in keys) is is_polar
+    assert ("omol25" in keys) is is_polar

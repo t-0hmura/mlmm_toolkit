@@ -181,6 +181,15 @@ sudo dnf install -y alsa-lib at-spi2-atk at-spi2-core atk ca-certificates cairo 
     python -m pip check
     ```
 
+(ja-mace-polar-embedding-install)=
+## MACE-POLARの直接埋め込み（任意）
+
+MACE-POLARで`--embedcharge`を使う場合は、手順7で作ったMACE用環境で次の追加依存を導入してください。xTBは不要です。
+
+```bash
+pip install 'mace-torch[polar]>=0.3.17' 'graph-longrange>=0.4.4'
+```
+
 ## システム要件
 
 **OS:** Linux を推奨します。ネイティブの Windows では AmberTools（`tleap`）が使えないため、対応していません。

@@ -343,6 +343,7 @@ def run_all(
 
     def image(_figure, destination, **_kwargs):
         write(Path(destination), "image fixture\n")
+        return Path(destination)
 
     monkeypatch.setattr(all_workflow, "_run_cli_main", child)
     monkeypatch.setattr(subprocess, "run", dft_subprocess)

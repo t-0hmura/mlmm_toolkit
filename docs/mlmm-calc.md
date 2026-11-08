@@ -24,6 +24,8 @@ The full system is evaluated with MM, the ML region is evaluated at both the hig
 
 With `--embedcharge`, the calculator uses electrostatic embedding in the ONIOM-EE form ([Vreven et al., *J. Chem. Theory Comput.* 2006, 2, 815](https://doi.org/10.1021/ct050289g)). The MM point charges enter MODEL-high, and MODEL-low adds the Coulomb energy between the force-field charges of the ML atoms and the same point charges. That term cancels the ML–MM Coulomb energy that REAL-low holds for those charges, so the interaction is counted once, at the high level. MM atoms one or two bonds from the ML region are not point charges; their interaction with the ML region stays in REAL-low at the force-field level. All other MM atoms are point charges, with no distance cutoff, as in Gaussian. `--embedcharge-cutoff` keeps only those within that distance (Å) of the ML region, chosen once on the `--ref-pdb` structure (else the `-i` PDB) and then kept fixed. The same `--ref-pdb` for R, TS and P gives them the same point charges, and `all` uses one structure for all its stages.
 
+With a MACE-POLAR model, `--embedcharge` uses MACE-POLAR polarization and electrostatics directly, without xTB. It includes ML and MM forces and link-H projection; the embedding-correction Hessian is a central force difference. See [backend-specific treatments](backends.md#electrostatic-embedding).
+
 ### Comparison with conventional QM/MM
 
 | Aspect | Conventional QM/MM | mlmm-toolkit ML/MM |
@@ -31,7 +33,7 @@ With `--embedcharge`, the calculator uses electrostatic embedding in the ONIOM-E
 | High-level method | DFT, HF, post-HF | MLIP (UMA, ORB, MACE, AIMNet2) or DFT (`-b dft`) |
 | Low-level method | OpenMM / Amber | `hessian_ff` (default) / OpenMM |
 | Link atoms | Usually required | Added automatically on each C–C, C–N, or N–C parm7 bond that crosses the ML/MM boundary |
-| Embedding | Electrostatic embedding is common | Mechanical by default; `--embedcharge` adds the MM point charges in the ONIOM-EE form (an xTB correction for MLIP backends, the PySCF Hamiltonian for DFT) |
+| Embedding | Electrostatic embedding is common | Mechanical by default; `--embedcharge` adds the MM point charges in the ONIOM-EE form (native MACE-POLAR embedding, xTB correction for other MLIPs, PySCF Hamiltonian for DFT) |
 | Speed | Slow (QM is the bottleneck) | Fast with an MLIP (GPU inference); `-b dft` runs at DFT cost |
 
 ## Layering for Hessian / optimization

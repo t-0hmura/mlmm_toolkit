@@ -35,8 +35,9 @@ def test_calculator_leaf_help_describes_native_dft_embedding() -> None:
     import click
     command = cli.get_command(click.Context(cli), "sp")
     help_text = next(p.help for p in command.params if "--embedcharge" in getattr(p, "opts", ()))
-    assert "xTB point-charge delta" in help_text
-    assert "native PySCF MM point charges" in help_text
+    assert "xTB correction" in help_text
+    assert "native MACE-POLAR" in help_text
+    assert "native PySCF point charges" in help_text
 
 
 def test_dft_resource_defaults_are_lowmem_and_explicit_values_normalize(

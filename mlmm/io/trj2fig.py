@@ -25,6 +25,7 @@ from ase import Atoms
 from ase.io import read
 from pysisyphus.constants import AU2EV, AU2KCALPERMOL
 from mlmm.io.xyz_trajectory import read_xyz_trajectory
+from mlmm.core.plotting import plot_enabled
 from mlmm.io.plotly_image import write_plotly_image
 
 AXIS_WIDTH = 3         # axis and tick thickness
@@ -267,6 +268,8 @@ def save_outputs(
     """
     for out in outs:
         ext = out.suffix.lower()
+        if ext != ".csv" and not plot_enabled():
+            continue
         if ext == ".csv":
             write_csv(out, energies, values, unit, is_delta)
         elif ext == ".html":
@@ -322,6 +325,7 @@ def run_trj2fig(
         raise FileNotFoundError(traj)
 
     out_paths = [Path(o).expanduser().resolve() for o in outs]
+    out_paths = [o for o in out_paths if o.suffix.lower() == ".csv" or plot_enabled()]
     candidates = [traj, *out_paths]
     for index, left in enumerate(candidates):
         for right in candidates[index + 1 :]:

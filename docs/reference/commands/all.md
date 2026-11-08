@@ -325,11 +325,10 @@ Options:
                                   High-level backend for the ONIOM model region.
                                   [default: (uma)]
   --embedcharge / --no-embedcharge
-                                  Enable point-charge treatment. MLIP/MM stages
-                                  use the computationally expensive xTB delta
-                                  correction; DFT/MM stages embed MM charges in
-                                  the PySCF Hamiltonian.  [default: no-
-                                  embedcharge]
+                                  Enable electrostatic embedding: native MACE-
+                                  POLAR, xTB correction for other MLIPs, or
+                                  native PySCF point charges for DFT/MM.
+                                  [default: no-embedcharge]
   --embedcharge-cutoff FLOAT      Distance cutoff (Å) from the ML region for the
                                   embedded MM point charges, measured on the -i
                                   PDB (or the --ref-pdb structure when given) so
@@ -429,5 +428,7 @@ Options:
                                   unaffected.  [default: (auto); x>=1]
   --dft-memory, --dft-mem TEXT    PySCF host RAM limit (for example 64GB or
                                   120000MB).  [default: (auto)]
+  --plot / --no-plot              Write workflow plots. Use --no-plot to skip
+                                  figures and Chrome rendering.  [default: plot]
   -h, --help                      Show this message and exit.
 ```

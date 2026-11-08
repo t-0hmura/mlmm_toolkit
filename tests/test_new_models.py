@@ -182,6 +182,8 @@ class _InfoRecordingCalculator(Calculator):
 
 
 def _install_fake_mace(monkeypatch, *, mace_polar=None):
+    from mlmm.io import summary
+    monkeypatch.setattr(summary, "_MACE_MODEL_IS_POLAR", {})
     calculators = ModuleType("mace.calculators")
     for name in ("mace_anicc", "mace_mp", "mace_off", "mace_omol"):
         setattr(calculators, name, lambda **_kwargs: pytest.fail("wrong MACE factory"))
@@ -282,7 +284,7 @@ def test_model_labels_match_pdb2reaction(backend, model, label) -> None:
     ("backend", "model", "expected"),
     [
         ("orb", "orbmol-v2", {"orb_v3", "omol25"}),
-        ("mace", "MACE-POLAR-1-M", {"mace", "mace_design", "omol25"}),
+        ("mace", "MACE-POLAR-1-M", {"mace", "mace_design", "mace_polar", "omol25"}),
     ],
 )
 def test_new_models_cite_their_model_and_dataset(backend, model, expected) -> None:

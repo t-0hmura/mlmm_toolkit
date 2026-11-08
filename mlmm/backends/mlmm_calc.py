@@ -1244,6 +1244,9 @@ class _MACEBackend(_ASEMLBackend):
                 model=mace_model, device=device_str, default_dtype=mace_dtype
             )
 
+        from mlmm.io.summary import register_mace_model_type
+        register_mace_model_type(mace_model, self._ase_calc)
+
         self._device = ml_device
         self._model_charge = model_charge
         self._model_mult = model_mult
@@ -2264,7 +2267,7 @@ class MLMMCore:
     Supported high-level backends: UMA (default), ORB, MACE, AIMNet2, PySCF DFT.
     Supported MM backends: hessian_ff (analytical), OpenMM (FD).
     The optional ``embedcharge`` path uses native PySCF point charges for the
-    DFT backend and the established xTB correction for MLIP backends.
+    DFT backend, native MACE-POLAR response, or the xTB correction for other MLIPs.
     """
 
     def __init__(
@@ -2591,7 +2594,18 @@ class MLMMCore:
         self.embedcharge_cutoff = embedcharge_cutoff
         self._embedding_indices: Optional[Tuple[int, ...]] = None
         self._embed_correction: Optional[_EmbedChargeCorrection] = None
-        if self.embedcharge and self.backend_name != "dft":
+        mace_calculator = getattr(self._ml_backend, "_ase_calc", None)
+        polar_models = getattr(mace_calculator, "models", ())
+        native_polar = (self.backend_name == "mace" and len(polar_models) == 1
+                        and type(polar_models[0]).__name__ == "PolarMACE")
+        self.embedding_method = ("mace-polar" if native_polar else (
+            "pyscf" if self.backend_name == "dft" else "xtb")) if self.embedcharge else "none"
+        if self.embedcharge and native_polar:
+            from mlmm.backends.mace_embedcharge import MACEPolarEmbedding
+            self._embed_correction = MACEPolarEmbedding(
+                mace_calculator, hessian_step=embedcharge_step,
+            )
+        elif self.embedcharge and self.backend_name != "dft":
             self._embed_correction = _EmbedChargeCorrection(
                 xtb_cmd=xtb_cmd,
                 xtb_acc=xtb_acc,
@@ -3650,7 +3664,7 @@ class MLMMCore:
                 raise ValueError(no_point_charge_message(self.embedcharge_cutoff))
             if getattr(self, "print_timing", False) and not getattr(self, "_embedcharge_logged", False):
                 emit(
-                    f"[embedcharge] {len(embed_indices)} MM point charges embedded; "
+                    f"[embedcharge] {len(embed_indices)} MM charges embedded ({getattr(self, 'embedding_method', 'xtb')}); "
                     f"MM atoms within {EMBED_EXCLUDED_BOND_DEPTH} bonds of the ML region "
                     "stay at the force-field level.",
                     narrative=True,
@@ -3694,7 +3708,7 @@ class MLMMCore:
                         ))
 
             if self._embed_correction is not None and embed_indices:
-                # xTB sees the same ML region plus link hydrogens as the MLIP.
+                # The correction sees the same ML region and link H as the MLIP.
                 # Its Hessian covers only the point charges in the Hessian
                 # region; the others would be dropped at assembly.
                 hess_pc_rows = [

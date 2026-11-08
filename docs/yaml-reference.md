@@ -199,10 +199,10 @@ calc:
  hessian_calc_mode: FiniteDifference # ML Hessian mode: "Analytical" or "FiniteDifference"
 
  # --- Optional electrostatic embedding ---
- embedcharge: false # MLIP uses an expensive xTB correction; dft uses direct PySCF embedding
+ embedcharge: false # Native MACE-POLAR, xTB correction for other MLIPs, native PySCF for DFT
  embedcharge_cutoff: null # MM point-charge cutoff from the ML region (Å); null = every MM atom except those 1-2 bonds from the ML region
  embedcharge_reference: null # structure on which embedcharge_cutoff is measured; null = the input PDB
- embedcharge_step: 0.001 # Numerical Hessian step for MLIP/xTB correction (unused by dft)
+ embedcharge_step: 0.001 # Numerical Hessian step for the embedding correction (unused by dft)
  xtb_cmd: xtb # xTB executable
  xtb_acc: 0.2 # xTB accuracy parameter
  xtb_workdir: tmp # xTB working directory

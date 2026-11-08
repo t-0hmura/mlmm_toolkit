@@ -320,6 +320,10 @@ mlmm all -i r.pdb p.pdb -c 'SAM,GPP' -l 'SAM:1,GPP:-3' --config my_settings.yaml
 * **インラインのスキャンリテラル**: 1 回の実行のインラインリテラルには、距離の目標値か範囲のどちらか一方しか書けません。両方を使うときは、YAML/JSON スペックの `stages:` に並べてください。
 * **mmCIF と大きな構造の制限**: 扱える残基は 619,938 個までです（計算の間に使う内部の PDB の、1 文字の chain ID 62 種 × 残基番号 9,999）。`fix-altloc` と `add-elem-info` は PDB だけを読みます。mmCIF では、読み込みのときに altLoc を選び、元素記号を `_atom_site.type_symbol` から取ります。`_atom_site.type_symbol` の無い行、有限でない座標、反応の状態の間で原子数が違う入力はエラーで止まります。座標は PDB の固定幅の欄に収まる必要があるので、原点から遠い構造は原点の近くに移してください。
 
+## 図の出力
+
+`all`・`scan`・`scan2d`・`scan3d`・`path-opt`・`path-search`・`irc`は、デフォルト（`--plot`）で図を出力します。画像がいらない場合は`--no-plot`を付けてください。PNG・HTMLなどの図とChromeによる画像生成を省き、CSV・構造・JSONなどの数値出力は残します。`all`の指定は子処理にも伝わります。描画専用の`trj2fig`・`energy-diagram`にこのフラグはありません。
+
 ## 関連ドキュメント
 
 - [インストール](installation.md) — セットアップと依存関係

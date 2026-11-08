@@ -20,6 +20,7 @@ def test_rendering_failure_retains_numeric_results(tmp_path, monkeypatch, failur
     def write(fig, path, **kwargs):
         check("write")
         path.write_bytes(b"image fixture")
+        return path
 
     monkeypatch.setattr(workflow, "build_energy_diagram", build)
     monkeypatch.setattr(workflow, "write_plotly_image", write)

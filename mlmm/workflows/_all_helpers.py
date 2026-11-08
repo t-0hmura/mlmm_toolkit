@@ -69,7 +69,7 @@ def build_energy_level_dict(
     energies_au: Sequence[float],
     ref_energy: float,
     au_to_kcal: float,
-    diagram_path: str,
+    diagram_path: Optional[str],
     structures: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Assemble one ML/MM, Gibbs, or DFT R/TS/P energy payload.
@@ -126,7 +126,8 @@ def promote_diag_for_root(
         return None
     promoted = dict(diag)
     promoted["name"] = f"{stem}_all"
-    promoted["image"] = str(out_dir / f"{stem}_all.png")
+    if promoted.get("image"):
+        promoted["image"] = str(out_dir / f"{stem}_all.png")
     return promoted
 
 

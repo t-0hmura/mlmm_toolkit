@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mlmm.core.plotting import add_plot_option, plot_enabled
+
 from mlmm.cli.completion import completion_guard, record_completion
 
 from copy import deepcopy
@@ -519,7 +521,8 @@ def _run_gsm_between(
     try:
         if wrote_with_energy:
             run_trj2fig(final_trj, [seg_dir / "mep_plot.png"], unit="kcal", reference="init", reverse_x=False)
-            emit(f"[{tag}] Saved energy plot → '{seg_dir / 'mep_plot.png'}'", detail=True)
+            if plot_enabled():
+                emit(f"[{tag}] Saved energy plot → '{seg_dir / 'mep_plot.png'}'", detail=True)
         else:
             click.echo(f"[{tag}] WARNING: Energies missing; skipping plot.", err=True)
     except Exception as e:
@@ -730,7 +733,8 @@ def _run_dmf_between(
 
     try:
         run_trj2fig(final_trj, [seg_dir / "mep_plot.png"], unit="kcal", reference="init", reverse_x=False)
-        emit(f"[{tag}] Saved energy plot → '{seg_dir / 'mep_plot.png'}'", detail=True)
+        if plot_enabled():
+            emit(f"[{tag}] Saved energy plot → '{seg_dir / 'mep_plot.png'}'", detail=True)
     except Exception as e:
         click.echo(f"[{tag}] WARNING: Failed to plot energy: {e}", err=True)
 
@@ -1956,7 +1960,7 @@ def _build_multistep_path(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable electrostatic embedding. MLIP backends use the computationally expensive xTB point-charge delta correction; dft uses native PySCF MM point charges.",
+    help="Enable electrostatic embedding: native MACE-POLAR, xTB correction for other MLIPs, or native PySCF point charges for dft.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -1998,6 +2002,7 @@ def _build_multistep_path(
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @add_dft_calculator_options()
+@add_plot_option()
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -2728,7 +2733,8 @@ def cli(
         emit(f"[write] Wrote '{final_trj}'.", detail=True)
         try:
             run_trj2fig(final_trj, [out_dir_path / "mep_plot.png"], unit="kcal", reference="init", reverse_x=False)
-            emit(f"[plot] Saved energy plot → '{out_dir_path / 'mep_plot.png'}'", detail=True)
+            if plot_enabled():
+                emit(f"[plot] Saved energy plot → '{out_dir_path / 'mep_plot.png'}'", detail=True)
         except Exception as e:
             click.echo(f"[plot] WARNING: Failed to plot final energy: {e}", err=True)
 
@@ -2986,7 +2992,7 @@ def cli(
                 "energies_kcal": energies_kcal,
                 "ylabel": "ΔE (kcal/mol)",
                 "energies_au": energies_au,
-                "image": str(out_dir_path / "energy_diagram_MEP.png"),
+                "image": None,
             }
 
             # Log exact inputs to build_energy_diagram, and the human-readable chain
@@ -3002,8 +3008,9 @@ def cli(
 
             try:
                 png_path = out_dir_path / "energy_diagram_MEP.png"
-                write_plotly_image(fig, png_path, scale=2)
-                emit(f"[diagram] Wrote energy diagram (PNG) → '{png_path}'", detail=True)
+                if write_plotly_image(fig, png_path, scale=2) is not None:
+                    diagram_payload["image"] = str(png_path)
+                    emit(f"[diagram] Wrote energy diagram (PNG) → '{png_path}'", detail=True)
             except Exception as e:
                 click.echo(f"[diagram] NOTE: PNG export skipped: {e}", err=True)
 

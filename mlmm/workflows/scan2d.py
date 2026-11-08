@@ -9,6 +9,8 @@ For detailed documentation, see: docs/scan2d.md
 
 from __future__ import annotations
 
+from mlmm.core.plotting import add_plot_option, plot_enabled
+
 from mlmm.cli.completion import completion_guard, record_completion
 
 import functools
@@ -491,7 +493,7 @@ def _select_closest_state_1d(
     "embedcharge",
     default=False,
     show_default=True,
-    help="Enable electrostatic embedding. MLIP backends use the computationally expensive xTB point-charge delta correction; dft uses native PySCF MM point charges.",
+    help="Enable electrostatic embedding: native MACE-POLAR, xTB correction for other MLIPs, or native PySCF point charges for dft.",
 )
 @click.option(
     "--embedcharge-cutoff",
@@ -546,6 +548,7 @@ def _select_closest_state_1d(
 @add_deterministic_option()
 @add_allow_charge_mult_mismatch_option()
 @add_dft_calculator_options()
+@add_plot_option()
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -1366,16 +1369,16 @@ def cli(
                 & np.isfinite(z_points)
                 & df["seed_eligible"].to_numpy(dtype=bool)
             )
-            if not np.any(mask):
+            if not np.any(mask) and plot_enabled():
                 click.echo("[plot] No finite data for plotting.")
             n_unique, support_rank = _rbf_support(
                 d1_points[mask], d2_points[mask]
             )
             # Too few or collinear usable points: keep surface.csv, skip only the plots.
-            plots_written = n_unique >= 3 and support_rank >= 2
+            plots_written = plot_enabled() and n_unique >= 3 and support_rank >= 2
             png2d = final_dir / "scan2d_map.png"
             if not plots_written:
-                if n_unique:
+                if n_unique and plot_enabled():
                     click.echo(
                         "[plot] NOTE: Plots skipped: a 2D energy surface needs at least "
                         "three non-collinear converged finite grid points; found "

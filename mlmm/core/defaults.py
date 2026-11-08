@@ -39,6 +39,8 @@ BFACTOR_TOLERANCE = 1.0
 # path_opt/path_search/scan/all all reject unknown --thresh values at
 # Click parse time).
 
+PLOT_DEFAULT = True
+
 THRESH_CHOICES = ("gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never")
 
 # The numerical engines require an integer loop bound even when the public

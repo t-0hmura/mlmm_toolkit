@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-11-09
+
+### Breaking changes
+
+- With MACE-POLAR, `--embedcharge` uses the model's native electrostatic response instead of an xTB correction. Energies, forces, and Hessians can therefore change for this combination.
+
+### Added
+
+- Native embedding includes forces on both ML atoms and MM point charges, link-H force projection, and a correction Hessian from finite differences of forces.
+- Install the native embedding dependencies in the MACE environment: `pip install 'mace-torch[polar]>=0.3.17' 'graph-longrange>=0.4.4'`.
+- `--plot/--no-plot` on workflows that produce figures. Plots remain on by default; `--no-plot` retains numerical and structural outputs.
+- MACE-POLAR citations in the existing method reference list.
+- Updated English and Japanese setup and backend documentation.
+
 ## [0.6.1] — 2026-11-08
 
 ### Breaking changes
